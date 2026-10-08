@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Hangfire;
 using Infrastructure.Messaging.Configuration;
 using Infrastructure.Messaging.Model;
@@ -20,6 +21,8 @@ public sealed class OutboxWorker<TDbContext>(
     ILogger<OutboxWorker<TDbContext>> logger)
     where TDbContext : DbContext
 {
+    private static readonly ActivitySource ConsumerSource = new("PlatformFoundation.Messaging");
+
     [AutomaticRetry(Attempts = 0)]
     public async Task RunAsync(CancellationToken cancellationToken)
     {
@@ -74,6 +77,15 @@ public sealed class OutboxWorker<TDbContext>(
             var context = new Application.SharedKernel.Abstractions.Messaging.MessageContext(
                 delivery.MessageId, delivery.Id, delivery.Message.Contract,
                 delivery.HandlerKey, delivery.Attempts);
+            // Restore W3C trace provenance from the transactionally persisted
+            // outbox envelope. A new consumer span continues the original trace.
+            var traceParent = delivery.Message.TraceParent;
+            ActivityContext parent = default;
+            var validParent = traceParent is not null &&
+                ActivityContext.TryParse(traceParent, null, out parent);
+            using var consumer = validParent
+                ? ConsumerSource.StartActivity("message.consume", ActivityKind.Consumer, parent)
+                : ConsumerSource.StartActivity("message.consume", ActivityKind.Consumer);
             await subscriber.Execute(services, delivery.Message.Payload, context, cancellationToken);
 
             var count = await db.Set<OutboxDelivery>()

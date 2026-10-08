@@ -7,6 +7,9 @@ using Hangfire.SqlServer;
 using FluentValidation;
 using Infrastructure.Messaging.Behaviors;
 using Infrastructure.Messaging.Processing;
+using Infrastructure.Messaging.Interceptors;
+using Infrastructure.Messaging.Behaviors;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Infrastructure.Messaging.Publishers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -71,6 +74,47 @@ public static class MessagingServiceCollectionExtensions
         return services;
     }
 
+    /// <summary>
+    /// Opt-in transaction-safe domain event routing for a business DbContext.
+    /// Must be called with AddPlatformMessaging against the same context.
+    /// For AddBaseInfrastructureServices contexts, removes the legacy
+    /// SavedChanges notification interceptor while retaining audit interceptors.
+    /// </summary>
+    public static IServiceCollection AddPlatformDomainEvents<TDbContext>(
+        this IServiceCollection services, params Assembly[] eventAssemblies)
+        where TDbContext : DbContext
+    {
+        ArgumentNullException.ThrowIfNull(eventAssemblies);
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IDomainEventRoutingMode,
+            TransactionalDomainEventMode<TDbContext>>());
+
+        services.TryAddScoped<IOutboxMessageStager>(sp =>
+            (IOutboxMessageStager)sp.GetRequiredService<IMessagePublisher>());
+        services.TryAddSingleton<DomainEventRegistry>();
+        services.TryAddSingleton(new PerformanceOptions());
+        services.AddValidatorsFromAssemblies(eventAssemblies);
+        services.TryAddEnumerable(ServiceDescriptor.Transient(
+            typeof(IDomainEventPipelineBehavior<>), typeof(DomainEventDiagnosticsBehavior<>)));
+        services.TryAddEnumerable(ServiceDescriptor.Transient(
+            typeof(IDomainEventPipelineBehavior<>), typeof(DomainEventValidationBehavior<>)));
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<ISaveChangesInterceptor,
+            TransactionalDomainEventsInterceptor<TDbContext>>());
+
+        foreach (var type in eventAssemblies.Distinct().SelectMany(x => x.GetTypes())
+            .Where(x => x.IsClass && !x.IsAbstract && !x.ContainsGenericParameters))
+        {
+            foreach (var iface in type.GetInterfaces().Where(x => x.IsGenericType))
+            {
+                var definition = iface.GetGenericTypeDefinition();
+                if (definition == typeof(IBeforeCommitDomainEventHandler<>) ||
+                    definition == typeof(IDomainEventMessageMapper<>))
+                    services.TryAddEnumerable(ServiceDescriptor.Scoped(iface, type));
+            }
+        }
+
+        return services;
+    }
+
     /// <summary>Enables the Hangfire polling worker in the SAME ASP.NET host.</summary>
     public static IServiceCollection AddPlatformMessagingHangfire<TDbContext>(
         this IServiceCollection services, string sqlServerConnectionString)
@@ -106,4 +150,10 @@ internal sealed class MessagingScheduleInitializer<TDbContext>(
     }
 
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+}
+
+internal sealed class TransactionalDomainEventMode<TDbContext> : IDomainEventRoutingMode
+    where TDbContext : DbContext
+{
+    public Type DbContextType => typeof(TDbContext);
 }

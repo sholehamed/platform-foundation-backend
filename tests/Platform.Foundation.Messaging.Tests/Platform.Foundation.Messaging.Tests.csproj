@@ -11,5 +11,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../../Infrastructure.Messaging/Infrastructure.Messaging.csproj" />
+    <ProjectReference Include="../../Infrastructure.Sharedkernel/Infrastructure.Sharedkernel.csproj" />
   </ItemGroup>
 </Project>

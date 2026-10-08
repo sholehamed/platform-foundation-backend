@@ -6,14 +6,23 @@ using Microsoft.EntityFrameworkCore.Diagnostics;
 public class DispatchDomainEventsInterceptor : SaveChangesInterceptor
 {
     private readonly IDispatcher _dispatcher;
+    private readonly IReadOnlyCollection<IDomainEventRoutingMode> _modes;
 
-    public DispatchDomainEventsInterceptor(IDispatcher dispatcher)
+    public DispatchDomainEventsInterceptor(
+        IDispatcher dispatcher, IEnumerable<IDomainEventRoutingMode> modes)
     {
         _dispatcher = dispatcher;
+        _modes = modes.ToArray();
     }
 
     public async override ValueTask<int> SavedChangesAsync(SaveChangesCompletedEventData eventData, int result, CancellationToken cancellationToken = default)
     {
+        // Opt-in transactional routing is applied only for its own DbContext.
+        // Legacy event publishing must remain available to other modules.
+        if (eventData.Context is { } db && _modes.Any(mode =>
+                mode.DbContextType.IsAssignableFrom(db.GetType())))
+            return await base.SavedChangesAsync(eventData, result, cancellationToken);
+
         ChangeTracker ct = eventData.Context!.ChangeTracker;
         var domainEvents = ct
            .Entries<IHasDomainEvents>()
@@ -37,9 +46,9 @@ public class DispatchDomainEventsInterceptor : SaveChangesInterceptor
         var method = typeof(IDispatcher)
             .GetMethods()
             .First(x => x.Name == nameof(IDispatcher.Publish) &&
-                        x.IsGenericMethod &&
+                        x.IsGenericMethodDefinition &&
                         x.GetGenericArguments().Length == 1 &&
-                        x.GetParameters()[0].ParameterType.GetGenericTypeDefinition() != typeof(CancellationToken));
+                        x.GetParameters().Length == 2);
 
         var genericMethod = method.MakeGenericMethod(domainEvent.GetType());
         var task = (Task)genericMethod.Invoke(_dispatcher, new object[] { domainEvent, cancellationToken })!;
