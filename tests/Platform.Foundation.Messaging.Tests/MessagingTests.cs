@@ -7,6 +7,8 @@ using Infrastructure.Messaging.Persistence;
 using Infrastructure.Messaging.Processing;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
@@ -254,6 +256,22 @@ public sealed class MessagingTests
             SqliteConnection.ClearAllPools();
             if (File.Exists(databasePath)) File.Delete(databasePath);
         }
+    }
+
+    [Fact]
+    public void Standalone_migration_generates_sql_server_schema_script()
+    {
+        // Generates SQL offline; does not require a running SQL Server.
+        var options = new DbContextOptionsBuilder<PlatformMessagingDbContext>()
+            .UseSqlServer("Server=localhost;Database=MessagingSchemaCheck;User Id=sa;Password=NotARealSecret123!;TrustServerCertificate=True")
+            .Options;
+        using var context = new PlatformMessagingDbContext(options);
+
+        var sql = context.GetService<IMigrator>().GenerateScript();
+
+        Assert.Contains("CREATE TABLE [MessagingOutboxMessages]", sql);
+        Assert.Contains("CREATE TABLE [MessagingOutboxDeliveries]", sql);
+        Assert.Contains("IX_MessagingOutboxDeliveries_MessageId_HandlerKey", sql);
     }
 
     private static ServiceProvider CreateFileProvider(string path, Probe probe)
