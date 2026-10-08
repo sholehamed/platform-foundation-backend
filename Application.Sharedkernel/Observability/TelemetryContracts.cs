@@ -42,6 +42,10 @@ public sealed record TelemetryQuery(
 public sealed record TelemetryPage<T>(
     IReadOnlyList<T> Items, long Total, int Page, int PageSize);
 
+/// <summary>Trace timeline result with explicit truncation for long traces.</summary>
+public sealed record TelemetryTraceResult(
+    string TraceId, long Total, bool Truncated, IReadOnlyList<TelemetryItem> Items);
+
 public sealed record TelemetryItem(
     Guid Id,
     DateTimeOffset Timestamp,
@@ -73,7 +77,7 @@ public interface ITelemetryHistoryReader
     Task<TelemetryPage<TelemetryItem>> SearchAsync(
         TelemetryQuery query, CancellationToken cancellationToken = default);
 
-    Task<IReadOnlyList<TelemetryItem>> GetTraceAsync(
+    Task<TelemetryTraceResult> GetTraceAsync(
         string traceId, DateTimeOffset from, DateTimeOffset to,
         CancellationToken cancellationToken = default);
 

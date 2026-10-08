@@ -33,7 +33,8 @@ public static class ObservabilityHistoryApiExtensions
             if (!ValidRange(begin, end, now) || p is < 1 or > 10000 ||
                 size is < 1 or > 100 || (long)(p - 1) * size > 1_000_000 ||
                 (traceId is not null && !ValidTraceId(traceId)) ||
-                source is { Length: > 128 } || name is { Length: > 128 })
+                source is { Length: > 128 } || name is { Length: > 128 } ||
+                (kind is { } selected && !Enum.IsDefined(selected)))
                 return Results.BadRequest(new { code = "observability.invalid_query" });
 
             var data = await reader.SearchAsync(
@@ -57,7 +58,7 @@ public static class ObservabilityHistoryApiExtensions
             return Results.Ok(await reader.GetTraceAsync(traceId, begin, end, ct));
         })
         .WithName("PlatformObservabilityTrace")
-        .Produces<IReadOnlyList<TelemetryItem>>()
+        .Produces<TelemetryTraceResult>()
         .Produces(StatusCodes.Status400BadRequest);
 
         group.MapGet("/summary", async (

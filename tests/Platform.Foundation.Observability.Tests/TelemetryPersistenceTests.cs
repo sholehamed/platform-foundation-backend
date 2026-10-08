@@ -39,8 +39,9 @@ public sealed class TelemetryPersistenceTests
         Assert.Equal(1, page.PageSize);
 
         var trace = await reader.GetTraceAsync(Trace, Now.AddHours(-1), Now.AddMinutes(1));
-        Assert.Equal(4, trace.Count);
-        Assert.All(trace, x => Assert.Equal(Trace, x.TraceId));
+        Assert.Equal(4, trace.Total);
+        Assert.False(trace.Truncated);
+        Assert.All(trace.Items, x => Assert.Equal(Trace, x.TraceId));
 
         var exceptions = await reader.SearchAsync(new TelemetryQuery(
             Now.AddHours(-1), Now.AddMinutes(1), TelemetryKind.Exception));

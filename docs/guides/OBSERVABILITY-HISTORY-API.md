@@ -47,7 +47,7 @@ dotnet ef database update --project Infrastructure.Observability --context Telem
 |---|---|---|
 | GET | `/api/platform/observability/snapshot?minutes=15&limit=50` | نمای سریع حافظه‌ای، موجود در F03 |
 | GET | `/api/platform/observability/records?from=...&to=...&kind=Operation&page=1&pageSize=50` | تاریخچه Log/Exception/Operation/Trace، جست‌وجو و صفحه‌بندی |
-| GET | `/api/platform/observability/traces/{traceId}?from=...&to=...` | ترتیب رویدادهای یک Trace |
+| GET | `/api/platform/observability/traces/{traceId}?from=...&to=...` | تاریخچه یک Trace به‌همراه `total` و `truncated` |
 | GET | `/api/platform/observability/summary?from=...&to=...` | Overview و Latency Metrics |
 
 `kind`: `Operation`, `Log`, `Trace`, `Exception`. تاریخ‌ها ISO 8601 و در Storage UTC هستند. پیش‌فرض بازه ۱ ساعت است (Trace Detail یک روز). PageSize ۱ تا ۱۰۰، صفحه ۱ تا ۱۰۰۰۰، بازه حداکثر ۳۰ روز. Query نامعتبر: HTTP 400. API برای کاربر بدون Permission کدهای استاندارد 401/403 دارد.
@@ -100,3 +100,7 @@ dotnet ef database update --project Infrastructure.Observability --context Telem
 ## Eventها و Outbox
 
 Domain Eventها هنوز به Messaging متصل نشده‌اند. قبل از باز شدن Workflow آن‌ها باید روشن کنیم Handler داخل UnitOfWork اجرا شود یا خروجی Integration Event بعد از Commit باشد؛ طراحی مکمل در ADR-005.
+
+### پاسخ Trace Detail
+
+`TelemetryTraceResult` شامل `traceId`، `total`، `truncated` و `items` است. API حداکثر ۵۰۰ رخداد را نمایش می‌دهد؛ اگر `truncated=true` شد، UI باید محدودیت نمایش را واضح اعلام کند.

@@ -42,7 +42,7 @@ public sealed class SqlTelemetryHistoryReader(TelemetryDbContext db, TimeProvide
             records.Select(x => x.ToContract()).ToArray(), total, query.Page, query.PageSize);
     }
 
-    public async Task<IReadOnlyList<TelemetryItem>> GetTraceAsync(
+    public async Task<TelemetryTraceResult> GetTraceAsync(
         string traceId, DateTimeOffset from, DateTimeOffset to,
         CancellationToken cancellationToken = default)
     {
@@ -50,10 +50,13 @@ public sealed class SqlTelemetryHistoryReader(TelemetryDbContext db, TimeProvide
         if (!ValidTraceId(traceId))
             throw new ArgumentException("Invalid trace ID.", nameof(traceId));
 
-        return (await Range(from, to).Where(x => x.TraceId == traceId)
-            .OrderBy(x => x.TimestampUtc).ThenBy(x => x.Id).Take(500)
-            .ToListAsync(cancellationToken))
-            .Select(x => x.ToContract()).ToArray();
+        var query = Range(from, to).Where(x => x.TraceId == traceId);
+        var total = await query.LongCountAsync(cancellationToken);
+        var events = await query.OrderBy(x => x.TimestampUtc).ThenBy(x => x.Id)
+            .Take(500).ToListAsync(cancellationToken);
+        return new TelemetryTraceResult(
+            traceId, total, total > 500,
+            events.Select(x => x.ToContract()).ToArray());
     }
 
     public async Task<TelemetrySummary> GetSummaryAsync(

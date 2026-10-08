@@ -26,6 +26,7 @@ public sealed class TelemetryHistoryApiTests
     [InlineData("/api/platform/observability/traces/" + Trace, "allowed", HttpStatusCode.OK)]
     [InlineData("/api/platform/observability/records?pageSize=101", "allowed", HttpStatusCode.BadRequest)]
     [InlineData("/api/platform/observability/records?page=0", "allowed", HttpStatusCode.BadRequest)]
+    [InlineData("/api/platform/observability/records?kind=99", "allowed", HttpStatusCode.BadRequest)]
     [InlineData("/api/platform/observability/traces/not-a-trace-id", "allowed", HttpStatusCode.BadRequest)]
     public async Task History_API_enforces_permission_and_query_bounds(
         string path, string identity, HttpStatusCode expected)
@@ -95,10 +96,10 @@ public sealed class TelemetryHistoryApiTests
             => Task.FromResult(new TelemetryPage<TelemetryItem>(
                 [], 3, query.Page, query.PageSize));
 
-        public Task<IReadOnlyList<TelemetryItem>> GetTraceAsync(
+        public Task<TelemetryTraceResult> GetTraceAsync(
             string traceId, DateTimeOffset from, DateTimeOffset to,
             CancellationToken cancellationToken = default)
-            => Task.FromResult<IReadOnlyList<TelemetryItem>>([]);
+            => Task.FromResult(new TelemetryTraceResult(traceId, 0, false, []));
 
         public Task<TelemetrySummary> GetSummaryAsync(
             DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken = default)
