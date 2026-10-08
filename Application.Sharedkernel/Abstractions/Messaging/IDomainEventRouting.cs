@@ -28,3 +28,9 @@ public interface IOutboxMessageStager
 {
     Guid Stage(IMessage message);
 }
+
+/// <summary>DI marker, per DbContext, so opt-in modules do not alter other modules.</summary>
+public interface IDomainEventRoutingMode
+{
+    Type DbContextType { get; }
+}

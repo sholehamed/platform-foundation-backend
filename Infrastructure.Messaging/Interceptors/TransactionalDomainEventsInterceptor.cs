@@ -28,7 +28,7 @@ public sealed class TransactionalDomainEventsInterceptor<TDbContext>(
     public override InterceptionResult<int> SavingChanges(
         DbContextEventData eventData, InterceptionResult<int> result)
     {
-        if (eventData.Context is { } db && HasUnprocessedEvents(db))
+        if (eventData.Context is TDbContext db && HasUnprocessedEvents(db))
             throw new InvalidOperationException(
                 "Domain events require SaveChangesAsync to ensure safe asynchronous handlers.");
         return result;
@@ -39,7 +39,7 @@ public sealed class TransactionalDomainEventsInterceptor<TDbContext>(
         CancellationToken cancellationToken = default)
     {
         var db = eventData.Context;
-        if (db is null) return result;
+        if (db is not TDbContext) return result;
         if (dispatching)
             throw new InvalidOperationException(
                 "Nested SaveChangesAsync inside a domain event handler is not supported.");
@@ -94,7 +94,7 @@ public sealed class TransactionalDomainEventsInterceptor<TDbContext>(
 
     public override int SavedChanges(SaveChangesCompletedEventData eventData, int result)
     {
-        CommitEvents(eventData.Context);
+        if (eventData.Context is TDbContext) CommitEvents(eventData.Context);
         return result;
     }
 
@@ -106,13 +106,15 @@ public sealed class TransactionalDomainEventsInterceptor<TDbContext>(
         return ValueTask.FromResult(result);
     }
 
-    public override void SaveChangesFailed(DbContextErrorEventData eventData) =>
-        CleanupPending(eventData.Context);
+    public override void SaveChangesFailed(DbContextErrorEventData eventData)
+    {
+        if (eventData.Context is TDbContext) CleanupPending(eventData.Context);
+    }
 
     public override Task SaveChangesFailedAsync(
         DbContextErrorEventData eventData, CancellationToken cancellationToken = default)
     {
-        CleanupPending(eventData.Context);
+        if (eventData.Context is TDbContext) CleanupPending(eventData.Context);
         return Task.CompletedTask;
     }
 

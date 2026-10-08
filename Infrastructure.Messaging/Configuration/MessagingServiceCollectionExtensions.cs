@@ -84,10 +84,8 @@ public static class MessagingServiceCollectionExtensions
         where TDbContext : DbContext
     {
         ArgumentNullException.ThrowIfNull(eventAssemblies);
-        foreach (var entry in services.Where(d =>
-            d.ServiceType == typeof(ISaveChangesInterceptor) &&
-            d.ImplementationType?.Name == "DispatchDomainEventsInterceptor").ToArray())
-            services.Remove(entry);
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IDomainEventRoutingMode,
+            TransactionalDomainEventMode<TDbContext>>());
 
         services.TryAddScoped<IOutboxMessageStager>(sp =>
             (IOutboxMessageStager)sp.GetRequiredService<IMessagePublisher>());
@@ -145,4 +143,10 @@ internal sealed class MessagingScheduleInitializer<TDbContext>(
     }
 
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+}
+
+internal sealed class TransactionalDomainEventMode<TDbContext> : IDomainEventRoutingMode
+    where TDbContext : DbContext
+{
+    public Type DbContextType => typeof(TDbContext);
 }
