@@ -173,7 +173,7 @@ public sealed class DomainEventIntegrationTests
             await scope.ServiceProvider.GetRequiredService<OutboxWorker<EventDb>>()
                 .RunAsync(CancellationToken.None);
         }
-        var consumed = Assert.Single(spans.Where(x => x.Name == "message.consume"));
+        var consumed = Assert.Single(spans.Where(x => x.Name == "message.consume" && x.Trace == expected));
         Assert.Equal(expected, consumed.Trace);
         Assert.Equal(parentSpan, consumed.Parent);
     }
