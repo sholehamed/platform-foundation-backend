@@ -23,7 +23,7 @@ public sealed class DomainEventIntegrationTests
         await using (var scope = test.Services.CreateAsyncScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<EventDb>();
-            db.Orders.Add(new EventOrder(id, "sample"));
+            db.Orders.Add(EventOrder.Create(id, "sample"));
             await db.SaveChangesAsync();
             Assert.Equal(new[] { "before:sample" }, test.Probe.Steps);
 
@@ -49,7 +49,7 @@ public sealed class DomainEventIntegrationTests
         {
             var db = scope.ServiceProvider.GetRequiredService<EventDb>();
             await using var transaction = await db.Database.BeginTransactionAsync();
-            db.Orders.Add(new EventOrder(Guid.NewGuid(), "rolled-back"));
+            db.Orders.Add(EventOrder.Create(Guid.NewGuid(), "rolled-back"));
             await db.SaveChangesAsync();
             Assert.Single(await db.Set<OutboxMessage>().ToListAsync());
             await transaction.RollbackAsync();
@@ -70,7 +70,7 @@ public sealed class DomainEventIntegrationTests
         test.Probe.ThrowBeforeCommit = true;
         await using var scope = test.Services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<EventDb>();
-        var order = new EventOrder(Guid.NewGuid(), "reject");
+        var order = EventOrder.Create(Guid.NewGuid(), "reject");
         db.Orders.Add(order);
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => db.SaveChangesAsync());
@@ -91,10 +91,10 @@ public sealed class DomainEventIntegrationTests
         using var test = new Fixture();
         await using var scope = test.Services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<EventDb>();
-        db.Orders.Add(new EventOrder(Guid.NewGuid(), "duplicate"));
+        db.Orders.Add(EventOrder.Create(Guid.NewGuid(), "duplicate"));
         await db.SaveChangesAsync();
 
-        var other = new EventOrder(Guid.NewGuid(), "duplicate");
+        var other = EventOrder.Create(Guid.NewGuid(), "duplicate");
         db.Orders.Add(other);
         await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync());
 
@@ -115,7 +115,7 @@ public sealed class DomainEventIntegrationTests
         using var test = new Fixture();
         using var scope = test.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<EventDb>();
-        var order = new EventOrder(Guid.NewGuid(), "sync");
+        var order = EventOrder.Create(Guid.NewGuid(), "sync");
         db.Orders.Add(order);
 
         Assert.Throws<InvalidOperationException>(() => db.SaveChanges());
@@ -129,7 +129,7 @@ public sealed class DomainEventIntegrationTests
         using var test = new Fixture();
         await using var scope = test.Services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<EventDb>();
-        db.Orders.Add(new EventOrder(Guid.NewGuid(), "explicit"));
+        db.Orders.Add(EventOrder.Create(Guid.NewGuid(), "explicit"));
         await db.SaveChangesAsync();
         Assert.DoesNotContain(test.Probe.Steps, x => x == "immediate");
 
@@ -161,7 +161,7 @@ public sealed class DomainEventIntegrationTests
         await using (var scope = test.Services.CreateAsyncScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<EventDb>();
-            db.Orders.Add(new EventOrder(Guid.NewGuid(), "traced"));
+            db.Orders.Add(EventOrder.Create(Guid.NewGuid(), "traced"));
             await db.SaveChangesAsync();
             var persisted = await db.Set<OutboxMessage>().SingleAsync();
             Assert.Equal(parent.Id, persisted.TraceParent);
@@ -236,11 +236,11 @@ public sealed class DomainEventIntegrationTests
     {
         private readonly List<IDomainEvent> events = [];
         private EventOrder() { }
-        public EventOrder(Guid id, string name)
+        public static EventOrder Create(Guid id, string name)
         {
-            Id = id;
-            Name = name;
-            events.Add(new OrderCreated(id, name));
+            var order = new EventOrder { Id = id, Name = name };
+            order.events.Add(new OrderCreated(id, name));
+            return order;
         }
 
         public Guid Id { get; private set; }
