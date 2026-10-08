@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Linq.Expressions;
 using System.Text.Json;
 using Application.SharedKernel.Abstractions.Messaging;
 using Microsoft.Extensions.DependencyInjection;
@@ -64,8 +65,14 @@ public sealed class MessageRegistry
             .GetMethod(nameof(InvokeAsync), BindingFlags.NonPublic | BindingFlags.Static)!
             .MakeGenericMethod(type);
 
-        return (services, payload, token) => (Task)method.Invoke(null,
-            [services, handlerType, payload, token])!;
+        // Compile once instead of MethodInfo.Invoke on every delivery. This also
+        // preserves the original Handler exception type for retry diagnostics.
+        var provider = Expression.Parameter(typeof(IServiceProvider), "services");
+        var payload = Expression.Parameter(typeof(string), "payload");
+        var token = Expression.Parameter(typeof(CancellationToken), "token");
+        return Expression.Lambda<Func<IServiceProvider, string, CancellationToken, Task>>(
+            Expression.Call(method, provider, Expression.Constant(handlerType), payload, token),
+            provider, payload, token).Compile();
     }
 
     private static Task InvokeAsync<TMessage>(

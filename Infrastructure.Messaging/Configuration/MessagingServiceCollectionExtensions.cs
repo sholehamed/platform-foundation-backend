@@ -1,6 +1,7 @@
 using System.Reflection;
 using Application.SharedKernel.Abstractions.Messaging;
 using Hangfire;
+using Hangfire.Common;
 using Hangfire.SqlServer;
 using Infrastructure.Messaging.Processing;
 using Infrastructure.Messaging.Publishers;

@@ -44,7 +44,7 @@ public sealed class MessagingTests
                 .RunAsync(CancellationToken.None);
         }
 
-        Assert.Equal(["first:alice", "second:alice"], test.Probe.Events);
+        Assert.Equal(new[] { "first:alice", "second:alice" }, test.Probe.Events);
         await using var verify = test.Services.CreateAsyncScope();
         var database = verify.ServiceProvider.GetRequiredService<MessagingTestDbContext>();
         Assert.Equal(2, await database.Set<OutboxDelivery>()
@@ -167,7 +167,7 @@ public sealed class MessagingTests
 
         await publisher.PublishAsync(new PingNotification());
 
-        Assert.Equal(["ping"], test.Probe.Events);
+        Assert.Equal(new[] { "ping" }, test.Probe.Events);
         var db = scope.ServiceProvider.GetRequiredService<MessagingTestDbContext>();
         Assert.Empty(await db.Set<OutboxMessage>().ToListAsync());
     }
