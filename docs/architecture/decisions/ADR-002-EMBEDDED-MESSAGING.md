@@ -46,3 +46,7 @@ Rollback تراکنش، Restart، Multi-Subscriber Delivery، Retry/Dead Letter�
 ## شرط پذیرش
 
 اجرای CI، بازبینی امنیتی، تعریف Idempotency در Handlerها، مستندسازی Migration و تأیید این محدودیت‌ها.
+
+## Migration اولیه
+
+یک Migration برای `PlatformMessagingDbContext` مستقل داخل `Infrastructure.Messaging/Persistence/Migrations` همراه پروژه ارائه شده است. اگر Outbox در Context ماژول اصلی قرار بگیرد، باید Migration مختص همان ماژول ایجاد شود؛ Migration مستقل جای آن را نمی‌گیرد.

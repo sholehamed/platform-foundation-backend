@@ -1,3 +1,4 @@
+using Application.SharedKernel;
 using Application.SharedKernel.Abstractions.Messaging;
 using Domain.SharedKernel.Common.Events;
 using Infrastructure.Messaging.Configuration;
@@ -183,6 +184,39 @@ public sealed class MessagingTests
             () => publisher.PublishAsync(new UnknownMessage()));
     }
 
+    [Fact]
+    public async Task Legacy_dispatcher_publish_uses_registered_notification_publisher()
+    {
+        using var test = new Fixture();
+        await using var scope = test.Services.CreateAsyncScope();
+
+        await scope.ServiceProvider.GetRequiredService<IDispatcher>()
+            .Publish(new PingNotification());
+
+        Assert.Equal(new[] { "ping" }, test.Probe.Events);
+    }
+
+    [Fact]
+    public void Standalone_sql_server_migration_is_discoverable()
+    {
+        using var test = new Fixture();
+        using var scope = test.Services.CreateScope();
+
+        var migrations = scope.ServiceProvider
+            .GetRequiredService<MessagingTestDbContext>()
+            .Database.GetMigrations();
+
+        // Business DbContext migrations are module-owned; the standalone
+        // PlatformMessagingDbContext has the shipped baseline migration.
+        Assert.Empty(migrations);
+
+        var standaloneOptions = new DbContextOptionsBuilder<PlatformMessagingDbContext>()
+            .UseSqlite("Data Source=:memory:")
+            .Options;
+        using var standalone = new PlatformMessagingDbContext(standaloneOptions);
+        Assert.Contains("20261008220000_InitialMessagingOutbox", standalone.Database.GetMigrations());
+    }
+
     private sealed class Fixture : IDisposable
     {
         private readonly SqliteConnection connection = new("Data Source=:memory:");
@@ -195,6 +229,7 @@ public sealed class MessagingTests
             connection.Open();
             var services = new ServiceCollection();
             services.AddSingleton(Probe);
+            services.AddCustomCqrs(typeof(PingHandler).Assembly);
             services.AddSingleton<TimeProvider>(Clock);
             services.AddDbContext<MessagingTestDbContext>(o => o.UseSqlite(connection));
             services.AddPlatformMessaging<MessagingTestDbContext>(

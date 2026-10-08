@@ -112,3 +112,18 @@ dotnet test tests/Platform.Foundation.Messaging.Tests/Platform.Foundation.Messag
 ## نکات بعدی
 
 Domain Event Routing، Ordering/Partitioning، Lease Heartbeat، Retention، Monitoring Dashboard، Message Schema Versioning و تست‌های Load.
+
+## Migration دیتابیس مستقل Messaging
+
+در حالت Standalone، یک Migration اولیه SQL Server همراه `Infrastructure.Messaging` ارائه می‌شود. قبل از راه‌اندازی با Connection String، آن را اجرا کنید:
+
+```bash
+# Environment variable: set it in the shell without committing secrets.
+dotnet ef database update \
+  --project Infrastructure.Messaging \
+  --context PlatformMessagingDbContext
+```
+
+مقدار `PLATFORM_MESSAGING_CONNECTION_STRING` باید به همان دیتابیسی اشاره کند که در Host به‌عنوان `ConnectionStrings:PlatformMessaging` تنظیم شده است. `PlatformMessagingDesignTimeFactory` اجازه می‌دهد Migration بدون بالا آوردن Web/Hangfire اجرا شود.
+
+**توجه:** این Migration فقط برای DbContext مستقل `PlatformMessagingDbContext` است؛ اگر `AddMessagingOutbox` را به DbContext یک ماژول اضافه کنید، Migration مخصوص همان ماژول باید جداگانه ساخته شود.
