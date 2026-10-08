@@ -30,7 +30,7 @@ public sealed class TelemetryPersistenceTests
 
         var reader = fixture.Reader;
         var page = await reader.SearchAsync(new TelemetryQuery(
-            Now.AddHours(-1), Now.AddHours(1), TelemetryKind.Operation,
+            Now.AddHours(-1), Now.AddMinutes(1), TelemetryKind.Operation,
             Source: "cqrs", Page: 1, PageSize: 1));
         Assert.Equal(2, page.Total);
         Assert.Single(page.Items);
@@ -38,12 +38,12 @@ public sealed class TelemetryPersistenceTests
         Assert.Equal(1, page.Page);
         Assert.Equal(1, page.PageSize);
 
-        var trace = await reader.GetTraceAsync(Trace, Now.AddHours(-1), Now.AddHours(1));
+        var trace = await reader.GetTraceAsync(Trace, Now.AddHours(-1), Now.AddMinutes(1));
         Assert.Equal(4, trace.Count);
         Assert.All(trace, x => Assert.Equal(Trace, x.TraceId));
 
         var exceptions = await reader.SearchAsync(new TelemetryQuery(
-            Now.AddHours(-1), Now.AddHours(1), TelemetryKind.Exception));
+            Now.AddHours(-1), Now.AddMinutes(1), TelemetryKind.Exception));
         Assert.Equal(1, exceptions.Total);
         Assert.Equal("InvalidOperationException", exceptions.Items[0].Name);
     }
@@ -60,7 +60,7 @@ public sealed class TelemetryPersistenceTests
             Event(TelemetryKind.Log, "cqrs", "log.event", 999, true));
 
         var summary = await fixture.Reader.GetSummaryAsync(
-            Now.AddHours(-1), Now.AddHours(1));
+            Now.AddHours(-1), Now.AddMinutes(1));
         Assert.Equal(4, summary.Total);
         Assert.Equal(1, summary.Failed);
         Assert.Equal(2, summary.Slow);
@@ -101,7 +101,7 @@ public sealed class TelemetryPersistenceTests
             fixture.Services.GetRequiredService<ILogger<TelemetryRetentionWorker>>());
         Assert.Equal(1, await worker.SweepAsync());
         var records = await fixture.Reader.SearchAsync(new TelemetryQuery(
-            Now.AddDays(-30), Now.AddHours(1)));
+            Now.AddDays(-30), Now.AddMinutes(1)));
         Assert.Equal(1, records.Total);
         Assert.Equal("Recent", records.Items[0].Name);
     }
