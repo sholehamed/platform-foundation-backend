@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Logging;
+using Web.SharedKernel.Observability;
 using AppValidationException = Application.SharedKernel.Exceptions.ValidationException;
 using FluentValidationException = FluentValidation.ValidationException;
 
@@ -46,6 +47,8 @@ public sealed class GlobalExceptionHandler(
         };
         problem.Extensions["code"] = error.Code;
         problem.Extensions["traceId"] = traceId;
+        if (httpContext.Items.TryGetValue(CorrelationMiddlewareExtensions.ItemKey, out var correlationId))
+            problem.Extensions["correlationId"] = correlationId?.ToString();
         if (error.Errors is not null)
             problem.Extensions["errors"] = error.Errors;
 

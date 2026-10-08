@@ -13,5 +13,6 @@
     <ProjectReference Include="..\Scalar.ClientGeneration\Scalar.ClientGeneration.csproj" />
     <ProjectReference Include="..\Web.Sharedkernel\Web.Sharedkernel.csproj" />
     <ProjectReference Include="..\Infrastructure.Messaging\Infrastructure.Messaging.csproj" />
+    <ProjectReference Include="..\Infrastructure.Observability\Infrastructure.Observability.csproj" />
   </ItemGroup>
 </Project>
