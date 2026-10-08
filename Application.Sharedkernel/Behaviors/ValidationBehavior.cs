@@ -1,5 +1,5 @@
 using Application.SharedKernel.Abstractions.Messaging;
-using Application.SharedKernel.Exceptions;
+using AppValidationException = Application.SharedKernel.Exceptions.ValidationException;
 using FluentValidation;
 using FluentValidation.Results;
 
@@ -27,7 +27,7 @@ public sealed class ValidationBehavior<TRequest, TResponse>(
         }
 
         if (failures.Count > 0)
-            throw new ValidationException(failures);
+            throw new AppValidationException(failures);
 
         return await next();
     }

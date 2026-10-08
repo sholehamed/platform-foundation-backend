@@ -1,6 +1,6 @@
 using Application.SharedKernel;
 using Application.SharedKernel.Abstractions.Messaging;
-using Application.SharedKernel.Exceptions;
+using AppValidationException = Application.SharedKernel.Exceptions.ValidationException;
 using Application.SharedKernel.Models;
 using Domain.SharedKernel.Common.Events;
 using FluentValidation;
@@ -30,7 +30,7 @@ public sealed class DispatcherPipelineTests
         var response = await dispatcher.Send(new CreateSampleCommand("valid"));
 
         Assert.Equal("valid", response);
-        Assert.Equal(["command"], scope.ServiceProvider.GetRequiredService<ExecutionLog>().Events);
+        Assert.Equal(new[] { "command" }, scope.ServiceProvider.GetRequiredService<ExecutionLog>().Events);
     }
 
     [Fact]
@@ -40,7 +40,7 @@ public sealed class DispatcherPipelineTests
         using var scope = provider.CreateScope();
         var dispatcher = scope.ServiceProvider.GetRequiredService<IDispatcher>();
 
-        var exception = await Assert.ThrowsAsync<ValidationException>(
+        var exception = await Assert.ThrowsAsync<AppValidationException>(
             () => dispatcher.Send(new CreateSampleCommand("")));
 
         Assert.Contains(nameof(CreateSampleCommand.Name), exception.Errors.Keys);
@@ -54,7 +54,7 @@ public sealed class DispatcherPipelineTests
         using var scope = provider.CreateScope();
         var dispatcher = scope.ServiceProvider.GetRequiredService<IDispatcher>();
 
-        await Assert.ThrowsAsync<ValidationException>(() => dispatcher.Query(new EchoQuery("")));
+        await Assert.ThrowsAsync<AppValidationException>(() => dispatcher.Query(new EchoQuery("")));
         Assert.Equal("echo", await dispatcher.Query(new EchoQuery("echo")));
     }
 
@@ -65,10 +65,10 @@ public sealed class DispatcherPipelineTests
         using var scope = provider.CreateScope();
         var dispatcher = scope.ServiceProvider.GetRequiredService<IDispatcher>();
 
-        await Assert.ThrowsAsync<ValidationException>(() => dispatcher.Send(new TrackCommand("")));
+        await Assert.ThrowsAsync<AppValidationException>(() => dispatcher.Send(new TrackCommand("")));
         await dispatcher.Send(new TrackCommand("okay"));
 
-        Assert.Equal(["void"], scope.ServiceProvider.GetRequiredService<ExecutionLog>().Events);
+        Assert.Equal(new[] { "void" }, scope.ServiceProvider.GetRequiredService<ExecutionLog>().Events);
     }
 
     [Fact]
@@ -84,7 +84,7 @@ public sealed class DispatcherPipelineTests
 
         await dispatcher.Send(new CreateSampleCommand("valid"));
 
-        Assert.Equal(["outer-before", "inner-before", "command", "inner-after", "outer-after"],
+        Assert.Equal(new[] { "outer-before", "inner-before", "command", "inner-after", "outer-after" },
             scope.ServiceProvider.GetRequiredService<ExecutionLog>().Events);
     }
 
@@ -111,7 +111,7 @@ public sealed class DispatcherPipelineTests
 
         await dispatcher.Publish(new SampleNotification());
 
-        Assert.Equal(["first-notification", "second-notification"],
+        Assert.Equal(new[] { "first-notification", "second-notification" },
             scope.ServiceProvider.GetRequiredService<ExecutionLog>().Events);
     }
 
@@ -124,7 +124,7 @@ public sealed class DispatcherPipelineTests
 
         await dispatcher.Publish(new SampleDomainEvent());
 
-        Assert.Equal(["domain-event"],
+        Assert.Equal(new[] { "domain-event" },
             scope.ServiceProvider.GetRequiredService<ExecutionLog>().Events);
     }
 
@@ -138,7 +138,7 @@ public sealed class DispatcherPipelineTests
         await Assert.ThrowsAsync<InvalidOperationException>(
             () => dispatcher.Publish(new FailingNotification()));
 
-        Assert.Equal(["failed-notification"],
+        Assert.Equal(new[] { "failed-notification" },
             scope.ServiceProvider.GetRequiredService<ExecutionLog>().Events);
     }
 
