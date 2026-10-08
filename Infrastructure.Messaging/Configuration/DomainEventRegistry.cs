@@ -37,23 +37,36 @@ public sealed class DomainEventRegistry
         IServiceProvider services, TEvent domainEvent, CancellationToken ct)
         where TEvent : IDomainEvent
     {
-        foreach (var handler in services.GetServices<IBeforeCommitDomainEventHandler<TEvent>>())
+        DomainEventHandlerDelegate next = async () =>
         {
-            ct.ThrowIfCancellationRequested();
-            await handler.HandleAsync(domainEvent, ct);
+            foreach (var handler in services.GetServices<IBeforeCommitDomainEventHandler<TEvent>>())
+            {
+                ct.ThrowIfCancellationRequested();
+                await handler.HandleAsync(domainEvent, ct);
+            }
+
+            var results = new List<IMessage>();
+            foreach (var mapper in services.GetServices<IDomainEventMessageMapper<TEvent>>())
+            {
+                ct.ThrowIfCancellationRequested();
+                var messages = mapper.Map(domainEvent) ??
+                    throw new InvalidOperationException("A domain event mapper returned null.");
+                foreach (var message in messages)
+                    results.Add(message ?? throw new InvalidOperationException(
+                        "A domain event mapper returned a null durable message."));
+            }
+
+            return results;
+        };
+
+        var behaviors = services.GetServices<IDomainEventPipelineBehavior<TEvent>>().ToArray();
+        for (var i = behaviors.Length - 1; i >= 0; i--)
+        {
+            var behavior = behaviors[i];
+            var continuation = next;
+            next = () => behavior.HandleAsync(domainEvent, continuation, ct);
         }
 
-        var results = new List<IMessage>();
-        foreach (var mapper in services.GetServices<IDomainEventMessageMapper<TEvent>>())
-        {
-            ct.ThrowIfCancellationRequested();
-            var messages = mapper.Map(domainEvent) ??
-                throw new InvalidOperationException("A domain event mapper returned null.");
-            foreach (var message in messages)
-                results.Add(message ?? throw new InvalidOperationException(
-                    "A domain event mapper returned a null durable message."));
-        }
-
-        return results;
+        return await next();
     }
 }

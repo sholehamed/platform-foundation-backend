@@ -34,3 +34,13 @@ public interface IDomainEventRoutingMode
 {
     Type DbContextType { get; }
 }
+
+/// <summary>Domain Event pipeline runs before business DB write, per event.</summary>
+public interface IDomainEventPipelineBehavior<TEvent> where TEvent : IDomainEvent
+{
+    Task<IReadOnlyList<IMessage>> HandleAsync(
+        TEvent domainEvent, DomainEventHandlerDelegate next,
+        CancellationToken cancellationToken);
+}
+
+public delegate Task<IReadOnlyList<IMessage>> DomainEventHandlerDelegate();

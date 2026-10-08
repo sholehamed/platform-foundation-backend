@@ -8,6 +8,7 @@ using FluentValidation;
 using Infrastructure.Messaging.Behaviors;
 using Infrastructure.Messaging.Processing;
 using Infrastructure.Messaging.Interceptors;
+using Infrastructure.Messaging.Behaviors;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Infrastructure.Messaging.Publishers;
 using Microsoft.EntityFrameworkCore;
@@ -90,6 +91,12 @@ public static class MessagingServiceCollectionExtensions
         services.TryAddScoped<IOutboxMessageStager>(sp =>
             (IOutboxMessageStager)sp.GetRequiredService<IMessagePublisher>());
         services.TryAddSingleton<DomainEventRegistry>();
+        services.TryAddSingleton(new PerformanceOptions());
+        services.AddValidatorsFromAssemblies(eventAssemblies);
+        services.TryAddEnumerable(ServiceDescriptor.Transient(
+            typeof(IDomainEventPipelineBehavior<>), typeof(DomainEventDiagnosticsBehavior<>)));
+        services.TryAddEnumerable(ServiceDescriptor.Transient(
+            typeof(IDomainEventPipelineBehavior<>), typeof(DomainEventValidationBehavior<>)));
         services.TryAddEnumerable(ServiceDescriptor.Scoped<ISaveChangesInterceptor,
             TransactionalDomainEventsInterceptor<TDbContext>>());
 
