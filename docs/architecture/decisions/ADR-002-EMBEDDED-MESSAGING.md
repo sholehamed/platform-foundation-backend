@@ -52,3 +52,12 @@ Rollback تراکنش، Restart، Multi-Subscriber Delivery، Retry/Dead Letter�
 یک Migration برای `PlatformMessagingDbContext` مستقل داخل `Infrastructure.Messaging/Persistence/Migrations` همراه پروژه ارائه شده است. اگر Outbox در Context ماژول اصلی قرار بگیرد، باید Migration مختص همان ماژول ایجاد شود؛ Migration مستقل جای آن را نمی‌گیرد.
 
 - اجرای Subscriberهای مستقل **ترتیب تضمین‌شده‌ای ندارد**. اگر ترتیب مهم است، قرارداد Ordering/Partitioning و سیاست پردازش ترتیبی باید جداگانه طراحی و تست شود.
+
+## تکمیل: Pipelineهای قبل از Handler
+
+- قراردادهای `INotificationPipelineBehavior<T>`، `IMessagePipelineBehavior<T>`، `NotificationHandlerDelegate`، `MessageHandlerDelegate` و `MessageContext` در Application.Sharedkernel قرار گرفتند.
+- Behaviorهای Diagnostics و FluentValidation به‌صورت پیش‌فرض در Infrastructure.Messaging ثبت می‌شوند و از DI قابل توسعه‌اند.
+- Pipeline هر Durable Message برای **هر Delivery/Subscriber مستقل** اجرا می‌شود؛ برای Notification در سطح یک Publish اجرا می‌شود و Subscriberها به شکل Fail-Fast فراخوانی می‌شوند.
+- فراخوانی نکردن `next()` در Notification مجاز است؛ در Message، عدم تکمیل Handler موفقیت محسوب نمی‌شود و Worker آن را Retry/Dead Letter می‌کند.
+- Validation پیام‌های ماندگار در زمان Delivery صورت می‌گیرد؛ این جایگزین Validation ورودی HTTP و Contract Migration نیست.
+- انتشار Domain Events فعلی تغییری نکرده، و اتصال به Queue تنها با فراخوان صریح `IMessagePublisher` رخ می‌دهد.

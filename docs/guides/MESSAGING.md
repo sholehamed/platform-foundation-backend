@@ -131,3 +131,9 @@ dotnet ef database update \
 ## ترتیب پردازش
 
 تحویل رویداد به Subscriberهای مختلف مستقل است و **ترتیب اجرای Handlerها تضمین نمی‌شود**. برای جریان‌های دارای وابستگی ترتیبی، از یک Subscriber هماهنگ‌کننده استفاده کنید یا منتظر طراحی اختصاصی Ordering/Partitioning بمانید؛ به ترتیب دریافت تصادفی دیتابیس تکیه نکنید.
+
+## Pipelineهای Notification و Message
+
+هر دو Publisher اکنون Pipeline قابل توسعه دارند. `Notification` می‌تواند کوتاه شود، اما **Durable Message هرگز با Short-Circuit بدون اجرای Handler، Completed نمی‌شود**. خطای Behavior نیز همان Retry/Dead Letter مربوط به Worker را طی می‌کند.
+
+راهنمای کامل قراردادها، DI، Validation، MessageContext، ترتیب اجرای Behaviorها و نمونه اجرایی در [MESSAGING-PIPELINES.md](MESSAGING-PIPELINES.md) است.
