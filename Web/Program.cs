@@ -14,6 +14,7 @@ builder.Services.AddBaseApiServices();
 // their own handler/validator assemblies when enabled.
 builder.Services.AddCustomCqrs(typeof(Application.SharedKernel.ServiceCollectionExtensions).Assembly);
 builder.Services.AddPlatformObservability(builder.Configuration);
+builder.Services.AddPlatformTelemetryPersistence(builder.Configuration);
 
 // Monitoring JSON endpoints are OFF until authentication and permissions are
 // configured by a consuming host/module. No backend dashboard is mapped.
@@ -42,6 +43,10 @@ if (app.Environment.IsDevelopment())
 
 app.MapScalarWithClientGeneration();
 if (builder.Configuration.GetValue<bool>("Observability:EnableFrontendReadApi"))
+{
     app.MapPlatformObservabilityReadApi();
+    if (builder.Configuration.GetValue<bool>("Observability:Persistence:Enabled"))
+        app.MapPlatformObservabilityHistoryApi();
+}
 app.UseHttpsRedirection();
 app.Run();

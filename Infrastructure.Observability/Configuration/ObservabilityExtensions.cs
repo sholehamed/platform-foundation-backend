@@ -58,6 +58,7 @@ public static class ObservabilityExtensions
                 .AddHttpClientInstrumentation())
             .WithMetrics(metrics => metrics
                 .AddMeter(FoundationMetrics.MeterName)
+                .AddMeter("PlatformFoundation.TelemetryStorage")
                 .AddAspNetCoreInstrumentation()
                 .AddRuntimeInstrumentation());
 
