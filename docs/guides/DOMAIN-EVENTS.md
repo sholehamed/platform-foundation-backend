@@ -108,3 +108,35 @@ Migration افزایشی Context مستقل: `20261009150000_AddOutboxTraceParen
 `tests/Platform.Foundation.Messaging.Tests/DomainEventIntegrationTests.cs`: تراکنش و Rollback، اجرای BeforeCommit، Fail/Retry، Sync guard، Notification دستی، TraceParent و Migration. تست SQLite جایگزین آزمون SQL Server واقعی نمی‌شود.
 
 پیشنهادهای بعدی: تست SQL Server در CI، Tenant Context امن، idempotent external adapters، کنترل چند instance و trace linking برای retryهای پیچیده.
+
+## Pipeline مستقل Domain Events
+
+`AddPlatformDomainEvents<TDbContext>` قبل از `IBeforeCommitDomainEventHandler<T>` و `IDomainEventMessageMapper<T>`، رفتارهای `DomainEventDiagnosticsBehavior<T>` و `DomainEventValidationBehavior<T>` را رجیستر می‌کند. Validators از Assemblyهای اعلام‌شده پیدا می‌شوند.
+
+```csharp
+public sealed class OrderCreatedValidator : AbstractValidator<OrderCreated>
+{
+    public OrderCreatedValidator() =>
+        RuleFor(x => x.OrderId).NotEmpty();
+}
+
+public sealed class TenantGuardDomainBehavior<T> : IDomainEventPipelineBehavior<T>
+    where T : IDomainEvent
+{
+    public Task<IReadOnlyList<IMessage>> HandleAsync(
+        T domainEvent, DomainEventHandlerDelegate next, CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        return next();
+    }
+}
+
+// پس از AddPlatformDomainEvents:
+services.AddTransient(
+    typeof(IDomainEventPipelineBehavior<>),
+    typeof(TenantGuardDomainBehavior<>));
+```
+
+Domain Event Pipeline برخلاف Notification Pipeline اجازه Silent Short-Circuit ندارد: اگر `next()` صدا زده نشود یا خطا بلعیده شود، Save موفق نمی‌شود و Event حفظ می‌شود. اجرای چندباره Terminal نیز رد می‌شود.
+
+آستانهٔ عملکرد Domain Event با `Observability:Performance:SlowDomainEventThresholdMs` (پیش‌فرض ۵۰۰ میلی‌ثانیه) تنظیم می‌شود؛ فقط نام Type و مدت زمان در Structured Logs / Metrics ثبت می‌شود، نه Payload.
