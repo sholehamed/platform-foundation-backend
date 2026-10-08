@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Text.Json;
 using Application.SharedKernel.Exceptions;
 using FluentValidation.Results;
 using Microsoft.AspNetCore.Diagnostics;
@@ -59,6 +60,7 @@ public sealed class GlobalExceptionHandler(
             // Force a consistent JSON contract even for clients with unsupported Accept.
             await httpContext.Response.WriteAsJsonAsync(
                 problem,
+                new JsonSerializerOptions(JsonSerializerDefaults.Web),
                 contentType: "application/problem+json",
                 cancellationToken: cancellationToken);
         }
