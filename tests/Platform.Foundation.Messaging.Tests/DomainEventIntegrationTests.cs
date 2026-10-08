@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Application.SharedKernel;
 using Application.SharedKernel.Abstractions.Messaging;
 using Domain.SharedKernel.Common.Events;
 using Infrastructure.Messaging.Configuration;
@@ -190,6 +191,93 @@ public sealed class DomainEventIntegrationTests
         Assert.Contains("nvarchar(55)", sql);
         Assert.Contains("20261009150000_AddOutboxTraceParent", db.Database.GetMigrations());
         await Task.CompletedTask;
+    }
+
+    [Fact]
+    public async Task Opt_in_domain_event_routing_is_scoped_to_one_DbContext()
+    {
+        using var connection = new SqliteConnection("Data Source=:memory:");
+        connection.Open();
+        var services = new ServiceCollection();
+        var probe = new Probe();
+        services.AddSingleton(probe);
+        services.AddCustomCqrs(typeof(Handler).Assembly);
+        services.AddScoped<ISaveChangesInterceptor, DispatchDomainEventsInterceptor>();
+        services.AddDbContext<EventDb>((sp, options) =>
+            options.UseSqlite(connection).AddInterceptors(
+                sp.GetServices<ISaveChangesInterceptor>()));
+        services.AddDbContext<SecondaryDb>((sp, options) =>
+            options.UseSqlite(connection).AddInterceptors(
+                sp.GetServices<ISaveChangesInterceptor>()));
+        services.AddPlatformMessaging<EventDb>(null, typeof(Handler).Assembly);
+        services.AddPlatformDomainEvents<EventDb>(typeof(Handler).Assembly);
+
+        using var provider = services.BuildServiceProvider(validateScopes: true);
+        await using (var scope = provider.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<EventDb>();
+            await db.Database.EnsureCreatedAsync();
+            db.Orders.Add(EventOrder.Create(Guid.NewGuid(), "transactional"));
+            await db.SaveChangesAsync();
+            Assert.Single(await db.Set<OutboxMessage>().ToListAsync());
+            Assert.DoesNotContain("legacy:transactional", probe.Steps);
+        }
+
+        // The unrelated module still has the old behavior, but must never
+        // enter the transactional event mapper bound to EventDb.
+        await using (var scope = provider.CreateAsyncScope())
+        {
+            var other = scope.ServiceProvider.GetRequiredService<SecondaryDb>();
+            other.Orders.Add(EventOrder.Create(Guid.NewGuid(), "legacy"));
+            await other.SaveChangesAsync();
+            Assert.Contains("legacy:legacy", probe.Steps);
+        }
+        await using (var scope = provider.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<EventDb>();
+            Assert.Single(await db.Set<OutboxMessage>().AsNoTracking().ToListAsync());
+        }
+    }
+
+    [Fact]
+    public async Task Materializing_saved_aggregate_does_not_raise_new_domain_events()
+    {
+        using var test = new Fixture();
+        var orderId = Guid.NewGuid();
+        await using (var scope = test.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<EventDb>();
+            db.Orders.Add(EventOrder.Create(orderId, "saved"));
+            await db.SaveChangesAsync();
+        }
+        await using (var scope = test.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<EventDb>();
+            var loaded = await db.Orders.SingleAsync(x => x.Id == orderId);
+            Assert.Empty(loaded.DomainEvents);
+            loaded.Name = "edited";
+            await db.SaveChangesAsync();
+            Assert.Single(await db.Set<OutboxMessage>().ToListAsync());
+        }
+    }
+
+    public sealed class SecondaryDb(DbContextOptions<SecondaryDb> options) : DbContext(options)
+    {
+        public DbSet<EventOrder> Orders => Set<EventOrder>();
+        protected override void OnModelCreating(ModelBuilder model)
+        {
+            model.Entity<EventOrder>().HasKey(x => x.Id);
+            model.Entity<EventOrder>().Ignore(x => x.DomainEvents);
+        }
+    }
+
+    public sealed class LegacyListener(Probe probe) : INotificationHandler<OrderCreated>
+    {
+        public Task Handle(OrderCreated evt, CancellationToken ct)
+        {
+            probe.Steps.Add("legacy:" + evt.Name);
+            return Task.CompletedTask;
+        }
     }
 
     private sealed class Fixture : IDisposable
