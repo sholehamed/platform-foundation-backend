@@ -17,6 +17,10 @@ jobs:
         run: dotnet restore tests/Platform.Foundation.Application.Tests/Platform.Foundation.Application.Tests.csproj
       - name: Run pipeline tests
         run: dotnet test tests/Platform.Foundation.Application.Tests/Platform.Foundation.Application.Tests.csproj --no-restore --configuration Release
+      - name: Restore Web exception tests
+        run: dotnet restore tests/Platform.Foundation.Web.Tests/Platform.Foundation.Web.Tests.csproj
+      - name: Run HTTP exception tests
+        run: dotnet test tests/Platform.Foundation.Web.Tests/Platform.Foundation.Web.Tests.csproj --no-restore --configuration Release
       - name: Restore full solution
         run: dotnet restore shinera-back.slnx
       - name: Build full solution (compatibility)

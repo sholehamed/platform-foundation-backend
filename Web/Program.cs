@@ -1,25 +1,22 @@
 using Scalar.ClientGeneration;
+using Web.SharedKernel;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddBaseApiServices();
 builder.Services.AddScalarClientGeneration();
-// Add services to the container.
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
+// Must run early so errors raised by following middleware/endpoints are mapped.
+app.UseBaseApiExceptionHandling();
+
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
 }
+
 app.MapScalarWithClientGeneration();
 app.UseHttpsRedirection();
-
-
-
-
-
 app.Run();
-
-
