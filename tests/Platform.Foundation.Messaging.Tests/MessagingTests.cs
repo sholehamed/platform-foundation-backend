@@ -217,6 +217,57 @@ public sealed class MessagingTests
         Assert.Contains("20261008220000_InitialMessagingOutbox", standalone.Database.GetMigrations());
     }
 
+    [Fact]
+    public async Task Persisted_delivery_survives_a_complete_service_provider_restart()
+    {
+        var databasePath = Path.Combine(Path.GetTempPath(),
+            "platform-messaging-" + Guid.NewGuid().ToString("N") + ".db");
+        try
+        {
+            var firstProbe = new Probe();
+            using (var first = CreateFileProvider(databasePath, firstProbe))
+            {
+                await using var scope = first.CreateAsyncScope();
+                var db = scope.ServiceProvider.GetRequiredService<MessagingTestDbContext>();
+                await db.Database.EnsureCreatedAsync();
+                await scope.ServiceProvider.GetRequiredService<IMessagePublisher>()
+                    .PublishAsync(new CustomerCreated("restart"));
+                await db.SaveChangesAsync();
+            }
+
+            // A completely new ServiceProvider opens the same durable SQLite store.
+            var secondProbe = new Probe();
+            using (var second = CreateFileProvider(databasePath, secondProbe))
+            {
+                await using var scope = second.CreateAsyncScope();
+                await scope.ServiceProvider.GetRequiredService<OutboxWorker<MessagingTestDbContext>>()
+                    .RunAsync(CancellationToken.None);
+                var db = scope.ServiceProvider.GetRequiredService<MessagingTestDbContext>();
+                Assert.Equal(2, await db.Set<OutboxDelivery>()
+                    .CountAsync(x => x.Status == DeliveryStatus.Completed));
+            }
+
+            Assert.Equal(new[] { "first:restart", "second:restart" }, secondProbe.Events);
+        }
+        finally
+        {
+            SqliteConnection.ClearAllPools();
+            if (File.Exists(databasePath)) File.Delete(databasePath);
+        }
+    }
+
+    private static ServiceProvider CreateFileProvider(string path, Probe probe)
+    {
+        var services = new ServiceCollection();
+        services.AddSingleton(probe);
+        services.AddSingleton<TimeProvider>(new TestClock());
+        services.AddDbContext<MessagingTestDbContext>(o =>
+            o.UseSqlite($"Data Source={path}"));
+        services.AddPlatformMessaging<MessagingTestDbContext>(
+            null, typeof(CustomerCreatedHandler1).Assembly);
+        return services.BuildServiceProvider(validateScopes: true);
+    }
+
     private sealed class Fixture : IDisposable
     {
         private readonly SqliteConnection connection = new("Data Source=:memory:");
@@ -316,8 +367,7 @@ public sealed class MessagingTests
     public sealed record UnknownMessage : IMessage;
     public sealed record MissingContractMessage : IMessage;
 
-    // This is deliberately excluded from assembly scanning in the test fixture
-    // by a configurable filter in a future contract-validation test.
+    // Abstract types are deliberately excluded from assembly scanning.
     private abstract class MissingContractHandler : IMessageHandler<MissingContractMessage>
     {
         public abstract Task HandleAsync(MissingContractMessage message, CancellationToken token);
