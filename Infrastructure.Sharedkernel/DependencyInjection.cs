@@ -1,4 +1,7 @@
 ﻿using Infrastructure.SharedKernel.Persistence.Interceptors;
+using Infrastructure.SharedKernel.Observability;
+using Application.SharedKernel.Observability;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -23,11 +26,14 @@ namespace Infrastructure.SharedKernel
 
 
 
+            services.TryAddSingleton(new PerformanceOptions());
+            services.TryAddScoped<IDbCommandInterceptor, DbTimingInterceptor>();
             services.AddScoped<ISaveChangesInterceptor, AuditableEntityInterceptor>();
             services.AddScoped<ISaveChangesInterceptor, DispatchDomainEventsInterceptor>();
             services.AddDbContext<TDbContext>((sp, options) =>
             {
                 options.AddInterceptors(sp.GetServices<ISaveChangesInterceptor>());
+                options.AddInterceptors(sp.GetServices<IDbCommandInterceptor>());
 
 
 

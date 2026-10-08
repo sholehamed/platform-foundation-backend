@@ -25,6 +25,10 @@ jobs:
         run: dotnet restore tests/Platform.Foundation.Messaging.Tests/Platform.Foundation.Messaging.Tests.csproj
       - name: Run Messaging tests
         run: dotnet test tests/Platform.Foundation.Messaging.Tests/Platform.Foundation.Messaging.Tests.csproj --no-restore -c Release
+      - name: Restore Observability tests
+        run: dotnet restore tests/Platform.Foundation.Observability.Tests/Platform.Foundation.Observability.Tests.csproj
+      - name: Run Observability tests
+        run: dotnet test tests/Platform.Foundation.Observability.Tests/Platform.Foundation.Observability.Tests.csproj --no-restore -c Release
       - name: Restore full solution
         run: dotnet restore shinera-back.slnx
       - name: Build full solution
