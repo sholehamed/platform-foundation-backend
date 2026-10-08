@@ -20,7 +20,7 @@ public sealed class EfMessagePublisher<TDbContext>(
 
         var descriptor = registry.ForType(message.GetType());
         var id = Guid.NewGuid();
-        var now = clock.GetUtcNow();
+        var now = clock.GetUtcNow().UtcDateTime;
         context.Set<OutboxMessage>().Add(new OutboxMessage
         {
             Id = id,
