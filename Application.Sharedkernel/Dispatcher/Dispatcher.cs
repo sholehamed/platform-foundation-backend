@@ -40,6 +40,14 @@ public sealed class Dispatcher(IServiceProvider serviceProvider) : IDispatcher
     {
         ArgumentNullException.ThrowIfNull(notification);
 
+        // Bridge legacy callers to the dedicated Messaging publisher when installed.
+        // Without Messaging registration, preserve the existing in-process behavior.
+        if (serviceProvider.GetService<INotificationPublisher>() is { } publisher)
+        {
+            await publisher.PublishAsync(notification, cancellationToken);
+            return;
+        }
+
         // Deliberately sequential and fail-fast. Domain events are not durable here;
         // retry/outbox semantics require an explicit follow-up architecture decision.
         foreach (var handler in serviceProvider.GetServices<INotificationHandler<TNotification>>())

@@ -1,3 +1,6 @@
+using Infrastructure.Messaging.Configuration;
+using Infrastructure.Messaging.Persistence;
+using Microsoft.EntityFrameworkCore;
 using Scalar.ClientGeneration;
 using Web.SharedKernel;
 
@@ -7,15 +10,21 @@ builder.Services.AddBaseApiServices();
 builder.Services.AddScalarClientGeneration();
 builder.Services.AddOpenApi();
 
-var app = builder.Build();
+// Opt-in standalone messaging host. For transactional business+event outbox,
+// configure AddPlatformMessaging<YourModuleDbContext>() against that DbContext.
+if (builder.Configuration.GetConnectionString("PlatformMessaging") is { Length: > 0 } messagingConnection)
+{
+    builder.Services.AddDbContext<PlatformMessagingDbContext>(options =>
+        options.UseSqlServer(messagingConnection));
+    builder.Services.AddPlatformMessaging<PlatformMessagingDbContext>();
+    builder.Services.AddPlatformMessagingHangfire<PlatformMessagingDbContext>(messagingConnection);
+}
 
-// Must run early so errors raised by following middleware/endpoints are mapped.
+var app = builder.Build();
 app.UseBaseApiExceptionHandling();
 
 if (app.Environment.IsDevelopment())
-{
     app.MapOpenApi();
-}
 
 app.MapScalarWithClientGeneration();
 app.UseHttpsRedirection();

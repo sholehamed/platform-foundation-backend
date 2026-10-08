@@ -18,10 +18,15 @@
   <Folder Name="/src/shared/">
     <Project Path="Application.Sharedkernel/Application.Sharedkernel.csproj" Id="33af244d-42f7-4c6a-af93-e9428d362def" />
     <Project Path="Domain.Sharedkernel/Domain.Sharedkernel.csproj" Id="27a5b064-1e36-4f6e-bbaf-f9c766d03667" />
+    <Project Path="Infrastructure.Messaging/Infrastructure.Messaging.csproj" />
     <Project Path="Infrastructure.Sharedkernel/Infrastructure.Sharedkernel.csproj" Id="b7331241-496b-46fa-8726-23f95f70cb0c" />
     <Project Path="Web.Sharedkernel/Web.Sharedkernel.csproj" Id="578faa8f-b468-42d8-a979-5cba5b074b7e" />
   </Folder>
-  <Folder Name="/tests/" />
+  <Folder Name="/tests/">
+    <Project Path="tests/Platform.Foundation.Application.Tests/Platform.Foundation.Application.Tests.csproj" />
+    <Project Path="tests/Platform.Foundation.Web.Tests/Platform.Foundation.Web.Tests.csproj" />
+    <Project Path="tests/Platform.Foundation.Messaging.Tests/Platform.Foundation.Messaging.Tests.csproj" />
+  </Folder>
   <Folder Name="/docs/">
     <File Path="docs/README.md" />
     <File Path="docs/architecture/ARCHITECTURE-OVERVIEW.md" />
