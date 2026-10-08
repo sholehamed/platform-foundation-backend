@@ -242,7 +242,7 @@ public sealed class ObservabilityTests
             => Task.CompletedTask;
     }
 
-    public sealed class Db(DbContextOptions<Db> options) : DbContext(options);
+    public sealed class Db(DbContextOptions<Db> options) : DbContext(options) { }
 
     public sealed class MemoryLoggerProvider : ILoggerProvider
     {

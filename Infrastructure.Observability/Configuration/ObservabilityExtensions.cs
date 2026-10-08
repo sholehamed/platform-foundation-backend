@@ -4,7 +4,7 @@ using Infrastructure.Observability.Storage;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
-using OpenTelemetry.Logs;
+using OpenTelemetry;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
@@ -58,13 +58,9 @@ public static class ObservabilityExtensions
         {
             // The environment controls OTLP endpoint and credentials.
             // Traces, metrics and structured logs go to the configured collector.
+            // The cross-cutting exporter registers logs, traces and metrics.
+            // Endpoint/credentials are controlled via OTEL_EXPORTER_OTLP_* variables.
             otel.UseOtlpExporter();
-            services.AddLogging(builder => builder.AddOpenTelemetry(options =>
-            {
-                options.IncludeScopes = true;
-                options.ParseStateValues = true;
-                options.IncludeFormattedMessage = false;
-            }));
         }
 
         return services;
