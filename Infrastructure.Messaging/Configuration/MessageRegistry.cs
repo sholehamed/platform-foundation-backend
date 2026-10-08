@@ -59,7 +59,7 @@ public sealed class MessageRegistry
             ? handler : throw new InvalidOperationException(
                 $"Missing message subscription {contract}|{handlerKey}.");
 
-    private static Func<IServiceProvider, string, CancellationToken, Task> CreateInvoker(Type type, Type handlerType)
+    private static Func<IServiceProvider, string, MessageContext, CancellationToken, Task> CreateInvoker(Type type, Type handlerType)
     {
         var method = typeof(MessageRegistry)
             .GetMethod(nameof(InvokeAsync), BindingFlags.NonPublic | BindingFlags.Static)!
@@ -69,26 +69,42 @@ public sealed class MessageRegistry
         // preserves the original Handler exception type for retry diagnostics.
         var provider = Expression.Parameter(typeof(IServiceProvider), "services");
         var payload = Expression.Parameter(typeof(string), "payload");
+        var context = Expression.Parameter(typeof(MessageContext), "context");
         var token = Expression.Parameter(typeof(CancellationToken), "token");
-        return Expression.Lambda<Func<IServiceProvider, string, CancellationToken, Task>>(
-            Expression.Call(method, provider, Expression.Constant(handlerType), payload, token),
-            provider, payload, token).Compile();
+        return Expression.Lambda<Func<IServiceProvider, string, MessageContext, CancellationToken, Task>>(
+            Expression.Call(method, provider, Expression.Constant(handlerType), payload, context, token),
+            provider, payload, context, token).Compile();
     }
 
     private static Task InvokeAsync<TMessage>(
-        IServiceProvider services, Type handlerType, string payload, CancellationToken token)
+        IServiceProvider services, Type handlerType, string payload,
+        MessageContext context, CancellationToken token)
         where TMessage : IMessage
     {
         var message = JsonSerializer.Deserialize<TMessage>(payload, JsonSerializerOptions.Web)
             ?? throw new JsonException("Message payload cannot be null.");
-        var handler = (IMessageHandler<TMessage>)services.GetRequiredService(handlerType);
-        return handler.HandleAsync(message, token);
+        var behaviors = services.GetServices<IMessagePipelineBehavior<TMessage>>().ToArray();
+        MessageHandlerDelegate next = () =>
+        {
+            token.ThrowIfCancellationRequested();
+            var handler = (IMessageHandler<TMessage>)services.GetRequiredService(handlerType);
+            return handler.HandleAsync(message, token);
+        };
+
+        for (var i = behaviors.Length - 1; i >= 0; i--)
+        {
+            var behavior = behaviors[i];
+            var continuation = next;
+            next = () => behavior.HandleAsync(message, context, continuation, token);
+        }
+
+        return next();
     }
 }
 
 public sealed record HandlerDescriptor(
     string Contract, string HandlerKey, Type HandlerType,
-    Func<IServiceProvider, string, CancellationToken, Task> Execute);
+    Func<IServiceProvider, string, MessageContext, CancellationToken, Task> Execute);
 
 public sealed class MessageDescriptor(Type messageType, string contract)
 {

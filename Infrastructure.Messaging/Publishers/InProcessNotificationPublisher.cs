@@ -11,10 +11,26 @@ public sealed class InProcessNotificationPublisher(IServiceProvider services) : 
         where TNotification : INotification
     {
         ArgumentNullException.ThrowIfNull(notification);
-        foreach (var handler in services.GetServices<INotificationHandler<TNotification>>())
+        var behaviors = services.GetServices<INotificationPipelineBehavior<TNotification>>().ToArray();
+        NotificationHandlerDelegate next = async () =>
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            await handler.Handle(notification, cancellationToken);
+            // Resolve handlers only after passing through the pipeline, so
+            // short-circuiting does not instantiate or execute subscribers.
+            foreach (var handler in services.GetServices<INotificationHandler<TNotification>>())
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                await handler.Handle(notification, cancellationToken);
+            }
+        };
+
+        for (var i = behaviors.Length - 1; i >= 0; i--)
+        {
+            var behavior = behaviors[i];
+            var continuation = next;
+            next = () => behavior.HandleAsync(notification, continuation, cancellationToken);
         }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        await next();
     }
 }

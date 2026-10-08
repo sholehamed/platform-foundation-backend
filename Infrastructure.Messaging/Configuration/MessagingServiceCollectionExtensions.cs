@@ -3,6 +3,8 @@ using Application.SharedKernel.Abstractions.Messaging;
 using Hangfire;
 using Hangfire.Common;
 using Hangfire.SqlServer;
+using FluentValidation;
+using Infrastructure.Messaging.Behaviors;
 using Infrastructure.Messaging.Processing;
 using Infrastructure.Messaging.Publishers;
 using Microsoft.EntityFrameworkCore;
@@ -32,6 +34,18 @@ public static class MessagingServiceCollectionExtensions
         services.AddSingleton(options);
         services.TryAddSingleton(TimeProvider.System);
         services.AddLogging();
+        services.AddValidatorsFromAssemblies(handlerAssemblies);
+
+        // Outermost first: diagnostics -> validation -> custom behaviors -> handler.
+        services.TryAddEnumerable(ServiceDescriptor.Transient(
+            typeof(INotificationPipelineBehavior<>), typeof(NotificationDiagnosticsBehavior<>)));
+        services.TryAddEnumerable(ServiceDescriptor.Transient(
+            typeof(INotificationPipelineBehavior<>), typeof(NotificationValidationBehavior<>)));
+        services.TryAddEnumerable(ServiceDescriptor.Transient(
+            typeof(IMessagePipelineBehavior<>), typeof(MessageDiagnosticsBehavior<>)));
+        services.TryAddEnumerable(ServiceDescriptor.Transient(
+            typeof(IMessagePipelineBehavior<>), typeof(MessageValidationBehavior<>)));
+
         services.TryAddScoped<IMessagePublisher, EfMessagePublisher<TDbContext>>();
         services.TryAddScoped<INotificationPublisher, InProcessNotificationPublisher>();
         services.TryAddScoped<IMessageDeliveryAdmin, MessageDeliveryAdmin<TDbContext>>();

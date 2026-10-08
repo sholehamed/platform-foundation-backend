@@ -71,7 +71,10 @@ public sealed class OutboxWorker<TDbContext>(
             var subscriber = registry.GetHandler(delivery.Message.Contract, delivery.HandlerKey);
             // Hangfire creates a DI scope for the job. The publisher's request
             // scope is already gone; handlers receive dependencies from this scope.
-            await subscriber.Execute(services, delivery.Message.Payload, cancellationToken);
+            var context = new Application.SharedKernel.Abstractions.Messaging.MessageContext(
+                delivery.MessageId, delivery.Id, delivery.Message.Contract,
+                delivery.HandlerKey, delivery.Attempts);
+            await subscriber.Execute(services, delivery.Message.Payload, context, cancellationToken);
 
             var count = await db.Set<OutboxDelivery>()
                 .Where(d => d.Id == id && d.Status == DeliveryStatus.Processing && d.LeaseToken == token)
