@@ -10,6 +10,8 @@ using Infrastructure.Messaging.Processing;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
@@ -17,6 +19,20 @@ namespace Platform.Foundation.Messaging.Tests;
 
 public sealed class DomainEventIntegrationTests
 {
+    [Fact]
+    public async Task Nested_SaveChanges_from_before_commit_handler_is_rejected()
+    {
+        using var test = new Fixture();
+        await using var scope = test.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<EventDb>();
+        var order = EventOrder.Create(Guid.NewGuid(), "nested");
+        db.Orders.Add(order);
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => db.SaveChangesAsync());
+        Assert.Single(order.DomainEvents);
+        Assert.Empty(db.Set<OutboxMessage>().Local);
+    }
+
     [Fact]
     public async Task Domain_event_validation_blocks_handlers_and_durable_mapping()
     {
@@ -237,6 +253,8 @@ public sealed class DomainEventIntegrationTests
         Assert.Contains("TraceParent", sql);
         Assert.Contains("nvarchar(55)", sql);
         Assert.Contains("20261009150000_AddOutboxTraceParent", db.Database.GetMigrations());
+        var upgradeScript = db.GetService<IMigrator>().GenerateScript();
+        Assert.Contains("ALTER TABLE [MessagingOutboxMessages] ADD [TraceParent]", upgradeScript);
         await Task.CompletedTask;
     }
 
@@ -410,6 +428,15 @@ public sealed class DomainEventIntegrationTests
             if (probe.ThrowBeforeCommit)
                 throw new InvalidOperationException("rejected");
             return Task.CompletedTask;
+        }
+    }
+
+    public sealed class NestedSavingGuard(EventDb db) : IBeforeCommitDomainEventHandler<OrderCreated>
+    {
+        public async Task HandleAsync(OrderCreated evt, CancellationToken ct)
+        {
+            if (evt.Name == "nested")
+                await db.SaveChangesAsync(ct);
         }
     }
 
