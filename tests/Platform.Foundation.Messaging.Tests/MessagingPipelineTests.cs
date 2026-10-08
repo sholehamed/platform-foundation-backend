@@ -160,6 +160,56 @@ public sealed class MessagingPipelineTests
         Assert.Empty(fixture.Probe.Events);
     }
 
+    [Fact]
+    public async Task Each_subscriber_receives_its_own_pipeline_context()
+    {
+        using var fixture = new Fixture(s =>
+            s.AddTransient<IMessagePipelineBehavior<MessagingTests.CustomerCreated>,
+                CaptureSubscriberContext>());
+        await using var scope = fixture.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<PipelineDbContext>();
+        var messageId = await scope.ServiceProvider.GetRequiredService<IMessagePublisher>()
+            .PublishAsync(new MessagingTests.CustomerCreated("fanout"));
+        await db.SaveChangesAsync();
+
+        await scope.ServiceProvider.GetRequiredService<OutboxWorker<PipelineDbContext>>()
+            .RunAsync(CancellationToken.None);
+
+        Assert.Equal(2, fixture.Probe.Contexts.Count);
+        Assert.All(fixture.Probe.Contexts, c =>
+        {
+            Assert.Equal(messageId, c.MessageId);
+            Assert.Equal(1, c.Attempt);
+        });
+        Assert.Equal(2, fixture.Probe.Contexts.Select(c => c.DeliveryId).Distinct().Count());
+        Assert.Equal(2, fixture.Probe.Contexts.Select(c => c.HandlerKey).Distinct().Count());
+        Assert.Equal(2, await db.Set<OutboxDelivery>().AsNoTracking()
+            .CountAsync(x => x.Status == DeliveryStatus.Completed));
+    }
+
+    [Fact]
+    public async Task Swallowed_handler_exception_does_not_silently_complete_delivery()
+    {
+        using var fixture = new Fixture(s =>
+            s.AddTransient<IMessagePipelineBehavior<MessagingTests.FlakyMessage>,
+                SwallowHandlerException>());
+        fixture.ExistingProbe.Fail = true;
+        await using var scope = fixture.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<PipelineDbContext>();
+        await scope.ServiceProvider.GetRequiredService<IMessagePublisher>()
+            .PublishAsync(new MessagingTests.FlakyMessage("fail"));
+        await db.SaveChangesAsync();
+
+        await scope.ServiceProvider.GetRequiredService<OutboxWorker<PipelineDbContext>>()
+            .RunAsync(CancellationToken.None);
+
+        var delivery = await db.Set<OutboxDelivery>().AsNoTracking().SingleAsync();
+        Assert.Equal(DeliveryStatus.Pending, delivery.Status);
+        Assert.Equal(1, delivery.Attempts);
+        Assert.Equal(nameof(InvalidOperationException), delivery.LastErrorType);
+        Assert.Equal(new[] { "handler.error.swallowed" }, fixture.Probe.Events);
+    }
+
     public sealed class PipelineDbContext(DbContextOptions<PipelineDbContext> options)
         : DbContext(options)
     {
@@ -177,6 +227,7 @@ public sealed class MessagingPipelineTests
     {
         private readonly SqliteConnection connection = new("Data Source=:memory:");
         public Probe Probe { get; } = new();
+        public MessagingTests.Probe ExistingProbe { get; } = new();
         public ServiceProvider Services { get; }
 
         public Fixture(Action<IServiceCollection>? customize = null,
@@ -185,6 +236,7 @@ public sealed class MessagingPipelineTests
             connection.Open();
             var services = new ServiceCollection();
             services.AddSingleton(Probe);
+            services.AddSingleton(ExistingProbe);
             services.AddDbContext<PipelineDbContext>(o => o.UseSqlite(connection));
             services.AddPlatformMessaging<PipelineDbContext>(
                 configure, typeof(PipelineMessageHandler).Assembly);
@@ -291,6 +343,34 @@ public sealed class MessagingPipelineTests
             probe.Events.Add("m.inner.before");
             await next();
             probe.Events.Add("m.inner.after");
+        }
+    }
+
+    public sealed class CaptureSubscriberContext(Probe probe)
+        : IMessagePipelineBehavior<MessagingTests.CustomerCreated>
+    {
+        public async Task HandleAsync(MessagingTests.CustomerCreated message,
+            MessageContext context, MessageHandlerDelegate next, CancellationToken ct)
+        {
+            probe.Contexts.Add(context);
+            await next();
+        }
+    }
+
+    public sealed class SwallowHandlerException(Probe probe)
+        : IMessagePipelineBehavior<MessagingTests.FlakyMessage>
+    {
+        public async Task HandleAsync(MessagingTests.FlakyMessage message,
+            MessageContext context, MessageHandlerDelegate next, CancellationToken ct)
+        {
+            try
+            {
+                await next();
+            }
+            catch (InvalidOperationException)
+            {
+                probe.Events.Add("handler.error.swallowed");
+            }
         }
     }
 
