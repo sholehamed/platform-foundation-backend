@@ -84,11 +84,16 @@ public sealed class MessageRegistry
         var message = JsonSerializer.Deserialize<TMessage>(payload, JsonSerializerOptions.Web)
             ?? throw new JsonException("Message payload cannot be null.");
         var behaviors = services.GetServices<IMessagePipelineBehavior<TMessage>>().ToArray();
-        MessageHandlerDelegate next = () =>
+        var handlerStarted = 0;
+        var handlerCompleted = false;
+        MessageHandlerDelegate next = async () =>
         {
             token.ThrowIfCancellationRequested();
+            if (Interlocked.Exchange(ref handlerStarted, 1) != 0)
+                throw new InvalidOperationException("Durable message handler must not execute twice.");
             var handler = (IMessageHandler<TMessage>)services.GetRequiredService(handlerType);
-            return handler.HandleAsync(message, token);
+            await handler.HandleAsync(message, token);
+            handlerCompleted = true;
         };
 
         for (var i = behaviors.Length - 1; i >= 0; i--)
@@ -98,7 +103,17 @@ public sealed class MessageRegistry
             next = () => behavior.HandleAsync(message, context, continuation, token);
         }
 
-        return next();
+        return ExecuteAndVerifyAsync();
+
+        async Task ExecuteAndVerifyAsync()
+        {
+            await next();
+            // A behavior may short-circuit a notification, but must never
+            // silently ACK a durable delivery that no handler completed.
+            if (!handlerCompleted)
+                throw new InvalidOperationException(
+                    "Durable message pipeline returned without a successful handler execution.");
+        }
     }
 }
 
