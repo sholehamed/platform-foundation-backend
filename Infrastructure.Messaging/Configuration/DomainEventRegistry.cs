@@ -37,8 +37,13 @@ public sealed class DomainEventRegistry
         IServiceProvider services, TEvent domainEvent, CancellationToken ct)
         where TEvent : IDomainEvent
     {
+        var terminalCalls = 0;
+        var terminalCompleted = false;
         DomainEventHandlerDelegate next = async () =>
         {
+            if (Interlocked.Increment(ref terminalCalls) != 1)
+                throw new InvalidOperationException(
+                    "Domain event terminal must not execute more than once.");
             foreach (var handler in services.GetServices<IBeforeCommitDomainEventHandler<TEvent>>())
             {
                 ct.ThrowIfCancellationRequested();
@@ -56,6 +61,7 @@ public sealed class DomainEventRegistry
                         "A domain event mapper returned a null durable message."));
             }
 
+            terminalCompleted = true;
             return results;
         };
 
@@ -67,6 +73,12 @@ public sealed class DomainEventRegistry
             next = () => behavior.HandleAsync(domainEvent, continuation, ct);
         }
 
-        return await next();
+        var routed = await next();
+        // Unlike in-process notifications, domain events cannot be silently
+        // ACKed by a behavior that skipped or swallowed a failed mapper/handler.
+        if (!terminalCompleted)
+            throw new InvalidOperationException(
+                "Domain event pipeline returned without successfully routing the event.");
+        return routed;
     }
 }

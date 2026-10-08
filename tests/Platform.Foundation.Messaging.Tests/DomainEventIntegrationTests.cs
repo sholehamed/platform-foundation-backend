@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using Application.SharedKernel;
 using Application.SharedKernel.Abstractions.Messaging;
+using FluentValidation;
 using Domain.SharedKernel.Common.Events;
 using Infrastructure.Messaging.Configuration;
 using Infrastructure.Messaging.Model;
@@ -16,6 +17,52 @@ namespace Platform.Foundation.Messaging.Tests;
 
 public sealed class DomainEventIntegrationTests
 {
+    [Fact]
+    public async Task Domain_event_validation_blocks_handlers_and_durable_mapping()
+    {
+        using var test = new Fixture();
+        await using var scope = test.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<EventDb>();
+        var order = EventOrder.Create(Guid.NewGuid(), "");
+
+        db.Orders.Add(order);
+        await Assert.ThrowsAsync<Application.SharedKernel.Exceptions.ValidationException>(
+            () => db.SaveChangesAsync());
+        Assert.Single(order.DomainEvents);
+        Assert.Empty(test.Probe.Steps);
+        Assert.Empty(db.Set<OutboxMessage>().Local);
+    }
+
+    [Fact]
+    public async Task Domain_event_pipeline_cannot_silently_discard_events()
+    {
+        using var test = new Fixture(services =>
+            services.AddTransient<IDomainEventPipelineBehavior<OrderCreated>, DiscardEvent>());
+        await using var scope = test.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<EventDb>();
+        var order = EventOrder.Create(Guid.NewGuid(), "ignored");
+        db.Orders.Add(order);
+
+        var failure = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => db.SaveChangesAsync());
+        Assert.Contains("without successfully routing", failure.Message);
+        Assert.Single(order.DomainEvents);
+        Assert.Empty(db.Set<OutboxMessage>().Local);
+        Assert.DoesNotContain("before:ignored", test.Probe.Steps);
+    }
+
+    public sealed class DiscardEvent : IDomainEventPipelineBehavior<OrderCreated>
+    {
+        public Task<IReadOnlyList<IMessage>> HandleAsync(
+            OrderCreated evt, DomainEventHandlerDelegate next, CancellationToken ct)
+            => Task.FromResult<IReadOnlyList<IMessage>>([]);
+    }
+
+    public sealed class OrderCreatedValidator : AbstractValidator<OrderCreated>
+    {
+        public OrderCreatedValidator() => RuleFor(x => x.Name).NotEmpty();
+    }
+
     [Fact]
     public async Task Domain_event_runs_before_save_and_stages_durable_message_atomically()
     {
@@ -286,7 +333,7 @@ public sealed class DomainEventIntegrationTests
         public Probe Probe { get; } = new();
         public ServiceProvider Services { get; }
 
-        public Fixture()
+        public Fixture(Action<IServiceCollection>? configure = null)
         {
             connection.Open();
             var services = new ServiceCollection();
@@ -296,6 +343,7 @@ public sealed class DomainEventIntegrationTests
                     .AddInterceptors(sp.GetServices<ISaveChangesInterceptor>()));
             services.AddPlatformMessaging<EventDb>(null, typeof(Handler).Assembly);
             services.AddPlatformDomainEvents<EventDb>(typeof(Handler).Assembly);
+            configure?.Invoke(services);
             Services = services.BuildServiceProvider(validateScopes: true);
             using var scope = Services.CreateScope();
             scope.ServiceProvider.GetRequiredService<EventDb>().Database.EnsureCreated();
