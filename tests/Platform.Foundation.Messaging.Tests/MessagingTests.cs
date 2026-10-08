@@ -47,7 +47,7 @@ public sealed class MessagingTests
                 .RunAsync(CancellationToken.None);
         }
 
-        Assert.Equal(new[] { "first:alice", "second:alice" }, test.Probe.Events);
+        Assert.Equal(new[] { "first:alice", "second:alice" }, test.Probe.Events.OrderBy(x => x));
         await using var verify = test.Services.CreateAsyncScope();
         var database = verify.ServiceProvider.GetRequiredService<MessagingTestDbContext>();
         Assert.Equal(2, await database.Set<OutboxDelivery>()
@@ -249,7 +249,7 @@ public sealed class MessagingTests
                     .CountAsync(x => x.Status == DeliveryStatus.Completed));
             }
 
-            Assert.Equal(new[] { "first:restart", "second:restart" }, secondProbe.Events);
+            Assert.Equal(new[] { "first:restart", "second:restart" }, secondProbe.Events.OrderBy(x => x));
         }
         finally
         {

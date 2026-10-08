@@ -127,3 +127,7 @@ dotnet ef database update \
 مقدار `PLATFORM_MESSAGING_CONNECTION_STRING` باید به همان دیتابیسی اشاره کند که در Host به‌عنوان `ConnectionStrings:PlatformMessaging` تنظیم شده است. `PlatformMessagingDesignTimeFactory` اجازه می‌دهد Migration بدون بالا آوردن Web/Hangfire اجرا شود.
 
 **توجه:** این Migration فقط برای DbContext مستقل `PlatformMessagingDbContext` است؛ اگر `AddMessagingOutbox` را به DbContext یک ماژول اضافه کنید، Migration مخصوص همان ماژول باید جداگانه ساخته شود.
+
+## ترتیب پردازش
+
+تحویل رویداد به Subscriberهای مختلف مستقل است و **ترتیب اجرای Handlerها تضمین نمی‌شود**. برای جریان‌های دارای وابستگی ترتیبی، از یک Subscriber هماهنگ‌کننده استفاده کنید یا منتظر طراحی اختصاصی Ordering/Partitioning بمانید؛ به ترتیب دریافت تصادفی دیتابیس تکیه نکنید.

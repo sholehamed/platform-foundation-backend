@@ -50,3 +50,5 @@ Rollback تراکنش، Restart، Multi-Subscriber Delivery، Retry/Dead Letter�
 ## Migration اولیه
 
 یک Migration برای `PlatformMessagingDbContext` مستقل داخل `Infrastructure.Messaging/Persistence/Migrations` همراه پروژه ارائه شده است. اگر Outbox در Context ماژول اصلی قرار بگیرد، باید Migration مختص همان ماژول ایجاد شود؛ Migration مستقل جای آن را نمی‌گیرد.
+
+- اجرای Subscriberهای مستقل **ترتیب تضمین‌شده‌ای ندارد**. اگر ترتیب مهم است، قرارداد Ordering/Partitioning و سیاست پردازش ترتیبی باید جداگانه طراحی و تست شود.
