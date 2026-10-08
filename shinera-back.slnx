@@ -22,4 +22,18 @@
     <Project Path="Web.Sharedkernel/Web.Sharedkernel.csproj" Id="578faa8f-b468-42d8-a979-5cba5b074b7e" />
   </Folder>
   <Folder Name="/tests/" />
+  <Folder Name="/docs/">
+    <File Path="docs/README.md" />
+    <File Path="docs/architecture/ARCHITECTURE-OVERVIEW.md" />
+    <File Path="docs/architecture/decisions/ADR-000-DOCUMENTATION-STRATEGY.md" />
+    <File Path="docs/concepts/CQRS-PIPELINE.md" />
+    <File Path="docs/concepts/OBSERVABILITY.md" />
+    <File Path="docs/concepts/CACHING.md" />
+    <File Path="docs/concepts/IDENTITY-AND-AUTHORIZATION.md" />
+    <File Path="docs/concepts/LOCALIZATION-AND-MENUS.md" />
+    <File Path="docs/development/FOUNDATION-STATUS.md" />
+    <File Path="docs/development/ROADMAP.md" />
+    <File Path="docs/guides/DOCUMENTATION-STANDARDS.md" />
+    <File Path="docs/guides/ENGINEERING-WORKFLOW.md" />
+  </Folder>
 </Solution>
