@@ -1,5 +1,6 @@
 using System.Reflection;
 using Application.SharedKernel.Abstractions.Messaging;
+using Application.SharedKernel.Observability;
 using Hangfire;
 using Hangfire.Common;
 using Hangfire.SqlServer;
@@ -34,15 +35,20 @@ public static class MessagingServiceCollectionExtensions
         services.AddSingleton(options);
         services.TryAddSingleton(TimeProvider.System);
         services.AddLogging();
+        services.TryAddSingleton(new PerformanceOptions());
         services.AddValidatorsFromAssemblies(handlerAssemblies);
 
-        // Outermost first: diagnostics -> validation -> custom behaviors -> handler.
+        // Outermost first: diagnostics -> performance -> validation -> custom behaviors -> handler.
         services.TryAddEnumerable(ServiceDescriptor.Transient(
             typeof(INotificationPipelineBehavior<>), typeof(NotificationDiagnosticsBehavior<>)));
+        services.TryAddEnumerable(ServiceDescriptor.Transient(
+            typeof(INotificationPipelineBehavior<>), typeof(NotificationPerformanceBehavior<>)));
         services.TryAddEnumerable(ServiceDescriptor.Transient(
             typeof(INotificationPipelineBehavior<>), typeof(NotificationValidationBehavior<>)));
         services.TryAddEnumerable(ServiceDescriptor.Transient(
             typeof(IMessagePipelineBehavior<>), typeof(MessageDiagnosticsBehavior<>)));
+        services.TryAddEnumerable(ServiceDescriptor.Transient(
+            typeof(IMessagePipelineBehavior<>), typeof(MessagePerformanceBehavior<>)));
         services.TryAddEnumerable(ServiceDescriptor.Transient(
             typeof(IMessagePipelineBehavior<>), typeof(MessageValidationBehavior<>)));
 
