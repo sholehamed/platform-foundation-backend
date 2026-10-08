@@ -5,6 +5,7 @@ using Infrastructure.Messaging.Model;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Infrastructure.Messaging.Interceptors;
 
@@ -15,8 +16,7 @@ namespace Infrastructure.Messaging.Interceptors;
 /// </summary>
 public sealed class TransactionalDomainEventsInterceptor<TDbContext>(
     IServiceProvider services,
-    DomainEventRegistry registry,
-    IOutboxMessageStager stager)
+    DomainEventRegistry registry)
     : SaveChangesInterceptor where TDbContext : DbContext
 {
     private readonly HashSet<IDomainEvent> pendingEvents =
@@ -67,8 +67,14 @@ public sealed class TransactionalDomainEventsInterceptor<TDbContext>(
                     // Avoid dispatching an event a second time on a later iteration.
                     pendingEvents.Add(evt);
                     var messages = await registry.DispatchAsync(services, evt, cancellationToken);
-                    foreach (var message in messages)
-                        stagedMessageIds.Add(stager.Stage(message));
+                    if (messages.Count > 0)
+                    {
+                        // Deferred resolution avoids DbContext -> interceptor ->
+                        // publisher -> same DbContext constructor cycle.
+                        var stager = services.GetRequiredService<IOutboxMessageStager>();
+                        foreach (var message in messages)
+                            stagedMessageIds.Add(stager.Stage(message));
+                    }
                 }
             }
 
