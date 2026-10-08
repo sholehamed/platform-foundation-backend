@@ -7,6 +7,8 @@ public sealed class OutboxMessage
     public string Contract { get; set; } = string.Empty;
     public string Payload { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }
+    /// <summary>Safe W3C traceparent persisted with the business transaction.</summary>
+    public string? TraceParent { get; set; }
 }
 
 public enum DeliveryStatus { Pending = 0, Processing = 1, Completed = 2, DeadLetter = 3 }
