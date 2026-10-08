@@ -35,6 +35,7 @@ if (builder.Configuration.GetConnectionString("PlatformMessaging") is { Length: 
 var app = builder.Build();
 app.UseBaseApiExceptionHandling();
 app.UsePlatformCorrelation();
+app.UsePlatformHttpPerformance();
 
 if (app.Environment.IsDevelopment())
     app.MapOpenApi();

@@ -10,6 +10,7 @@
 - `Application.Sharedkernel/Behaviors/RequestPerformanceBehavior`: هشدار کندی CQRS.
 - `Infrastructure.Messaging/Behaviors/*PerformanceBehavior`: Notification و Delivery.
 - `Infrastructure.Sharedkernel/Observability/DbTimingInterceptor`: اندازه‌گیری EF Core بدون SQL و پارامتر.
+- `Web.Sharedkernel/Observability/HttpPerformanceMiddlewareExtensions`: زمان پاسخ HTTP بر اساس Route Template، نه Path واقعی.
 - `Infrastructure.Observability`: Store حافظه‌ای محدود و پیکربندی OTel.
 - `Web.Sharedkernel/Observability`: Correlation middleware و Endpointهای JSON مجوزدار.
 - `tests/Platform.Foundation.Observability.Tests`: تست‌ها.

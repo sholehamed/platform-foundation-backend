@@ -176,6 +176,37 @@ public sealed class ObservabilityTests
         Assert.Equal(32, id.Length);
     }
 
+    [Fact]
+    public async Task Http_metrics_use_route_template_instead_of_raw_url()
+    {
+        var buffer = new BoundedObservabilityStore(50, TimeProvider.System);
+        var builder = new WebHostBuilder()
+            .ConfigureServices(services =>
+            {
+                services.AddLogging();
+                services.AddSingleton<IOperationTelemetrySink>(buffer);
+                services.AddFoundationPerformance(o => o.SlowRequestThresholdMs = 0);
+            })
+            .Configure(app =>
+            {
+                app.UseRouting();
+                app.UsePlatformCorrelation();
+                app.UsePlatformHttpPerformance();
+                app.UseEndpoints(routes =>
+                    routes.MapGet("/sample/{privateId}", () => Results.Ok()));
+            });
+        using var server = new TestServer(builder);
+        using var client = server.CreateClient();
+        using var response = await client.GetAsync("/sample/SENSITIVE-PRIVATE-ID");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var recent = buffer.GetSnapshot(TimeSpan.FromMinutes(1)).Recent;
+        var entry = Assert.Single(recent);
+        Assert.Equal("http", entry.Category);
+        Assert.Equal("GET /sample/{privateId}", entry.Name);
+        Assert.DoesNotContain("SENSITIVE-PRIVATE-ID", entry.Name);
+    }
+
     private static TestServer CreateServer()
     {
         var builder = new WebHostBuilder()
