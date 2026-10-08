@@ -1,0 +1,18 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<ItemGroup>
+		<PackageReference Include="OpenIddict.AspNetCore" />
+		<PackageReference Include="OpenIddict.EntityFrameworkCore" />
+		<PackageReference Include="SkiaSharp" />
+		<PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <Folder Include="Application\Features\TenantModules\" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <ProjectReference Include="..\Web.Sharedkernel\Web.Sharedkernel.csproj" />
+	</ItemGroup>
+
+</Project>

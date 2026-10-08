@@ -1,0 +1,25 @@
+<Solution>
+  <Folder Name="/Solution Items/">
+    <File Path="Directory.Build.props" />
+    <File Path="Directory.Packages.props" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="Application/Application.csproj" Id="25d40eb3-abe3-43db-afaf-b751f2e6a000" />
+    <Project Path="Domain/Domain.csproj" Id="f4c605c8-b1c6-4377-b7c3-4c6ff4518d13" />
+    <Project Path="Infrastructure/Infrastructure.csproj" Id="9105cdf0-cf63-4316-b2a2-85a216cb65d4" />
+    <Project Path="Migrator/Migrator.csproj" Id="422d7654-ab0f-4053-a94d-2399925e7eb0" />
+    <Project Path="Web/Web.csproj" Id="e066232f-6bae-475a-b67f-cd4aed7b27e2" />
+  </Folder>
+  <Folder Name="/src/modules/">
+    <Project Path="Modules.Identity/Modules.Identity.csproj" Id="192171e9-9683-4ec7-b6c0-96d72033a256" />
+    <Project Path="Modules.MediaStorage/Modules.MediaStorage.csproj" Id="9004061e-f61f-45d8-9d54-7d0b3cfeb06a" />
+    <Project Path="Scalar.ClientGeneration/Scalar.ClientGeneration.csproj" Id="2e068048-f0fd-4e29-8746-7f39a2becf21" />
+  </Folder>
+  <Folder Name="/src/shared/">
+    <Project Path="Application.Sharedkernel/Application.Sharedkernel.csproj" Id="33af244d-42f7-4c6a-af93-e9428d362def" />
+    <Project Path="Domain.Sharedkernel/Domain.Sharedkernel.csproj" Id="27a5b064-1e36-4f6e-bbaf-f9c766d03667" />
+    <Project Path="Infrastructure.Sharedkernel/Infrastructure.Sharedkernel.csproj" Id="b7331241-496b-46fa-8726-23f95f70cb0c" />
+    <Project Path="Web.Sharedkernel/Web.Sharedkernel.csproj" Id="578faa8f-b468-42d8-a979-5cba5b074b7e" />
+  </Folder>
+  <Folder Name="/tests/" />
+</Solution>
