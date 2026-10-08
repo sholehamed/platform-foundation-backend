@@ -46,9 +46,9 @@ public class DispatchDomainEventsInterceptor : SaveChangesInterceptor
         var method = typeof(IDispatcher)
             .GetMethods()
             .First(x => x.Name == nameof(IDispatcher.Publish) &&
-                        x.IsGenericMethod &&
+                        x.IsGenericMethodDefinition &&
                         x.GetGenericArguments().Length == 1 &&
-                        x.GetParameters()[0].ParameterType.GetGenericTypeDefinition() != typeof(CancellationToken));
+                        x.GetParameters().Length == 2);
 
         var genericMethod = method.MakeGenericMethod(domainEvent.GetType());
         var task = (Task)genericMethod.Invoke(_dispatcher, new object[] { domainEvent, cancellationToken })!;
