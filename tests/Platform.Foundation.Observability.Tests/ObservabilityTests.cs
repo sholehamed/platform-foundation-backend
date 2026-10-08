@@ -16,6 +16,9 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Hosting;
+using Infrastructure.Observability.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Web.SharedKernel.Observability;
@@ -206,6 +209,49 @@ public sealed class ObservabilityTests
         Assert.Equal("http", entry.Category);
         Assert.Equal("GET /sample/{privateId}", entry.Name);
         Assert.DoesNotContain("SENSITIVE-PRIVATE-ID", entry.Name);
+    }
+
+    [Fact]
+    public async Task Observability_host_starts_without_a_collector()
+    {
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Observability:ServiceName"] = "Foundation.Observability.Tests",
+                ["Observability:Otlp:Enabled"] = "false",
+                ["Observability:RecentSampleCapacity"] = "100"
+            })
+            .Build();
+
+        using var host = new HostBuilder()
+            .ConfigureServices(services => services.AddPlatformObservability(configuration))
+            .Build();
+
+        await host.StartAsync();
+        Assert.NotNull(host.Services.GetRequiredService<IObservabilityReader>());
+        Assert.NotNull(host.Services.GetRequiredService<PerformanceOptions>());
+        await host.StopAsync();
+    }
+
+    [Fact]
+    public async Task Failing_telemetry_sink_does_not_break_command_execution()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddCustomCqrs(typeof(ObservabilityTests).Assembly);
+        services.AddSingleton<IOperationTelemetrySink>(new FaultySink());
+        using var provider = services.BuildServiceProvider(validateScopes: true);
+        using var scope = provider.CreateScope();
+
+        var result = await scope.ServiceProvider.GetRequiredService<IDispatcher>()
+            .Send(new TraceCommand("never log"));
+        Assert.Equal("ok", result);
+    }
+
+    public sealed class FaultySink : IOperationTelemetrySink
+    {
+        public void Record(OperationObservation observation)
+            => throw new InvalidOperationException("telemetry unavailable");
     }
 
     private static TestServer CreateServer()

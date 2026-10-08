@@ -95,3 +95,7 @@ dotnet build shinera-back.slnx -c Release
 - SQL command text، query arguments، body و token عمداً وارد نمونه‌های عملکرد نمی‌شوند.
 - بازه Dashboard باید با Scope دسترسی داده‌ها و Retention هماهنگ باشد.
 - Context اجرایی Hangfire هنوز نیاز به انتشار TraceParent در Outbox دارد.
+
+## فیلتر Logging و داده حساس
+
+`AddPlatformObservability` خروجی پیش‌فرض دسته `Microsoft.EntityFrameworkCore.Database.Command` را برای **تمام Logger Providerها** غیرفعال می‌کند، چون EF Core ممکن است SQL یا پارامترها را ثبت کند. در عوض `DbTimingInterceptor` صرفاً نوع فرمان، نتیجه، مدت زمان و TraceId را ثبت می‌کند. با این وجود توسعه‌دهنده نباید اطلاعات حساس را در `ILogger`، `Activity.SetTag` یا Exception Message سفارشی قرار دهد؛ وقتی OTLP فعال است، آنها به مقصد خارجی ارسال می‌شوند.

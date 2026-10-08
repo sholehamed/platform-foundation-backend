@@ -48,3 +48,7 @@ Telemetry: ActivitySource + System.Diagnostics.Metrics
 - آینده Backend: ذخیره پایدار با Retention و Pagination، چندسروری، TraceParent Outbox، هشدارها و فیلترهای دقیق، بررسی Tenant Scope.
 - آینده Angular: Overview، Latency (P50/P95/P99)، Error Rate، Slow Operations، Traces، Exceptions، Job Health و فیلترها؛ با Authorization واقعی و RTL فارسی.
 - پیش از Production: آزمون یکپارچه SQL Server/OTLP، سیاست داده حساس، Benchmark زیر بار و عدم دسترسی غیرمجاز.
+
+## سیاست محافظت از داده‌ها
+
+Logهای پیش‌فرض `Microsoft.EntityFrameworkCore.Database.Command` با ثبت `AddPlatformObservability` فیلتر می‌شوند تا SQL/پارامترها وارد Structured Log/OTLP نشوند. این محدودیت **برای Logging دلخواه کدهای مصرف‌کننده تضمین خودکار Redaction ایجاد نمی‌کند** و باید در بازبینی امنیتی Moduleها لحاظ شود.

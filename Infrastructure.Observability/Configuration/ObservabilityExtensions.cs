@@ -4,6 +4,7 @@ using Infrastructure.Observability.Storage;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Logging;
 using OpenTelemetry;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
@@ -28,6 +29,12 @@ public static class ObservabilityExtensions
         {
             configuration.GetSection("Observability:Performance").Bind(options);
         });
+
+        // EF's built-in command logs can include raw SQL and values. Disable
+        // them for every registered provider (including an optional OTLP exporter).
+        // Our DbTimingInterceptor emits sanitized duration/status metadata.
+        services.AddLogging(logging => logging.AddFilter(
+            "Microsoft.EntityFrameworkCore.Database.Command", LogLevel.None));
 
         services.TryAddSingleton(TimeProvider.System);
         services.AddSingleton(settings);
