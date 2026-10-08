@@ -184,6 +184,7 @@ public sealed class ObservabilityTests
             .ConfigureServices(services =>
             {
                 services.AddLogging();
+                services.AddRouting();
                 services.AddSingleton<IOperationTelemetrySink>(buffer);
                 services.AddFoundationPerformance(o => o.SlowRequestThresholdMs = 0);
             })
@@ -213,6 +214,7 @@ public sealed class ObservabilityTests
             .ConfigureServices(services =>
             {
                 services.AddLogging();
+                services.AddRouting();
                 services.AddSingleton<IObservabilityReader>(
                     new BoundedObservabilityStore(10, TimeProvider.System));
                 services.AddAuthentication("Test").AddScheme<AuthenticationSchemeOptions, TestAuthHandler>(
