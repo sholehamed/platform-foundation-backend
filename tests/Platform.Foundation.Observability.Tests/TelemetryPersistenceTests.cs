@@ -13,7 +13,7 @@ namespace Platform.Foundation.Observability.Tests;
 
 public sealed class TelemetryPersistenceTests
 {
-    private static readonly DateTimeOffset Now = new(2026, 10, 9, 10, 0, 0, TimeSpan.Zero);
+    private static readonly DateTimeOffset Now = DateTimeOffset.UtcNow;
     private const string Trace = "0123456789abcdef0123456789abcdef";
 
     [Fact]
@@ -136,7 +136,7 @@ public sealed class TelemetryPersistenceTests
         Assert.True(capture.TryRecord(Event(TelemetryKind.Operation, "cqrs", "Last")));
         // We cannot inspect raw buffered items from another assembly; flush through
         // the same public worker path against the SQLite history store.
-        await using var worker = new TelemetryPersistenceWorker(
+        using var worker = new TelemetryPersistenceWorker(
             capture, fixture.Services.GetRequiredService<IServiceScopeFactory>(),
             new TelemetryCaptureOptions(),
             fixture.Services.GetRequiredService<ILogger<TelemetryPersistenceWorker>>());
@@ -165,7 +165,7 @@ public sealed class TelemetryPersistenceTests
         bridge.Record(new OperationObservation(Now, "cqrs", "CreateAccount",
             31, false, true, Trace));
 
-        await using var worker = new TelemetryPersistenceWorker(
+        using var worker = new TelemetryPersistenceWorker(
             channel, fixture.Services.GetRequiredService<IServiceScopeFactory>(),
             new TelemetryCaptureOptions(),
             fixture.Services.GetRequiredService<ILogger<TelemetryPersistenceWorker>>());
