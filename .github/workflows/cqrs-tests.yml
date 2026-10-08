@@ -1,4 +1,4 @@
-name: CQRS Pipeline Tests
+name: Foundation Backend Tests
 
 on:
   pull_request:
@@ -6,22 +6,26 @@ on:
     branches: [main]
 
 jobs:
-  cqrs-tests:
+  backend-tests:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
-      - name: Restore
+      - name: Restore CQRS tests
         run: dotnet restore tests/Platform.Foundation.Application.Tests/Platform.Foundation.Application.Tests.csproj
-      - name: Run pipeline tests
-        run: dotnet test tests/Platform.Foundation.Application.Tests/Platform.Foundation.Application.Tests.csproj --no-restore --configuration Release
-      - name: Restore Web exception tests
+      - name: Run CQRS tests
+        run: dotnet test tests/Platform.Foundation.Application.Tests/Platform.Foundation.Application.Tests.csproj --no-restore -c Release
+      - name: Restore HTTP tests
         run: dotnet restore tests/Platform.Foundation.Web.Tests/Platform.Foundation.Web.Tests.csproj
-      - name: Run HTTP exception tests
-        run: dotnet test tests/Platform.Foundation.Web.Tests/Platform.Foundation.Web.Tests.csproj --no-restore --configuration Release
+      - name: Run HTTP tests
+        run: dotnet test tests/Platform.Foundation.Web.Tests/Platform.Foundation.Web.Tests.csproj --no-restore -c Release
+      - name: Restore Messaging tests
+        run: dotnet restore tests/Platform.Foundation.Messaging.Tests/Platform.Foundation.Messaging.Tests.csproj
+      - name: Run Messaging tests
+        run: dotnet test tests/Platform.Foundation.Messaging.Tests/Platform.Foundation.Messaging.Tests.csproj --no-restore -c Release
       - name: Restore full solution
         run: dotnet restore shinera-back.slnx
-      - name: Build full solution (compatibility)
-        run: dotnet build shinera-back.slnx --no-restore --configuration Release
+      - name: Build full solution
+        run: dotnet build shinera-back.slnx --no-restore -c Release
