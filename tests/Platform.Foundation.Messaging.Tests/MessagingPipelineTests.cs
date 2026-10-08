@@ -142,7 +142,7 @@ public sealed class MessagingPipelineTests
 
         var delivery = await db.Set<OutboxDelivery>().AsNoTracking().SingleAsync();
         Assert.Equal(DeliveryStatus.DeadLetter, delivery.Status);
-        Assert.Equal(nameof(ApplicationValidationException), delivery.LastErrorType);
+        Assert.Equal(nameof(Application.SharedKernel.Exceptions.ValidationException), delivery.LastErrorType);
         Assert.Empty(fixture.Probe.Events);
     }
 
