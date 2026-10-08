@@ -57,7 +57,7 @@ public sealed class TransactionalDomainEventsInterceptor<TDbContext>(
                 var events = db.ChangeTracker.Entries<IHasDomainEvents>()
                     .SelectMany(x => x.Entity.DomainEvents)
                     .Where(x => !pendingEvents.Contains(x))
-                    .Distinct(ReferenceEqualityComparer.Instance)
+                    .Distinct<IDomainEvent>(ReferenceEqualityComparer.Instance)
                     .ToArray();
                 if (events.Length == 0) return result;
 
