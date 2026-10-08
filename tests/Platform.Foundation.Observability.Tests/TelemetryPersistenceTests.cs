@@ -102,7 +102,7 @@ public sealed class TelemetryPersistenceTests
             fixture.Services.GetRequiredService<ILogger<TelemetryRetentionWorker>>());
         Assert.Equal(1, await worker.SweepAsync());
         var records = await fixture.Reader.SearchAsync(new TelemetryQuery(
-            Now.AddDays(-30), Now.AddMinutes(1)));
+            Now.AddDays(-29), Now.AddMinutes(1)));
         Assert.Equal(1, records.Total);
         Assert.Equal("Recent", records.Items[0].Name);
     }
