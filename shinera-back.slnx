@@ -27,6 +27,7 @@
     <Project Path="tests/Platform.Foundation.Application.Tests/Platform.Foundation.Application.Tests.csproj" />
     <Project Path="tests/Platform.Foundation.Web.Tests/Platform.Foundation.Web.Tests.csproj" />
     <Project Path="tests/Platform.Foundation.Messaging.Tests/Platform.Foundation.Messaging.Tests.csproj" />
+    <Project Path="tests/Platform.Foundation.Observability.Tests/Platform.Foundation.Observability.Tests.csproj" />
   </Folder>
   <Folder Name="/docs/">
     <File Path="docs/README.md" />
