@@ -6,6 +6,7 @@
     <PackageVersion Include="FFMpegCore" Version="5.4.0" />
     <PackageVersion Include="Hangfire" Version="1.8.23" />
     <PackageVersion Include="Hangfire.Core" Version="1.8.23" />
+    <PackageVersion Include="Hangfire.AspNetCore" Version="1.8.23" />
     <PackageVersion Include="Hangfire.SqlServer" Version="1.8.23" />
     <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.10" />
     <PackageVersion Include="Microsoft.OpenApi" Version="3.10.2" />
