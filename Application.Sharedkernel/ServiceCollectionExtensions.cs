@@ -1,63 +1,73 @@
-﻿using Application.SharedKernel.Abstractions;
+using System.Reflection;
+using Application.SharedKernel.Abstractions;
 using Application.SharedKernel.Abstractions.Mapping;
 using Application.SharedKernel.Abstractions.Messaging;
+using Application.SharedKernel.Behaviors;
 using Application.SharedKernel.Services;
+using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
-using System.Reflection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using DispatcherClass = Application.SharedKernel.Dispatcher.Dispatcher;
-namespace Application.SharedKernel
+
+namespace Application.SharedKernel;
+
+public static class ServiceCollectionExtensions
 {
-    public static class ServiceCollectionExtensions
+    public static IServiceCollection AddCustomCqrs<TProfile>(
+        this IServiceCollection services, params Assembly[] assemblies)
+        where TProfile : MappingProfile, new()
     {
-        public static IServiceCollection AddCustomCqrs<TProfile>(
-            this IServiceCollection services,
-            params Assembly[] assemblies) where TProfile : MappingProfile, new()
+        services.AddAutoMapper(options => options.AddProfile<TProfile>());
+        return RegisterCore(services, assemblies);
+    }
+
+    public static IServiceCollection AddCustomCqrs(
+        this IServiceCollection services, params Assembly[] assemblies) =>
+        RegisterCore(services, assemblies);
+
+    private static IServiceCollection RegisterCore(
+        IServiceCollection services, Assembly[] assemblies)
+    {
+        ArgumentNullException.ThrowIfNull(assemblies);
+
+        services.TryAddSingleton<IDateTimeProvider, DateTimeProvider>();
+        services.AddLogging();
+        services.TryAddScoped<IDispatcher, DispatcherClass>();
+
+        // Registration order defines wrapping order: diagnostics -> validation -> handler.
+        services.TryAddEnumerable(ServiceDescriptor.Transient(
+            typeof(IPipelineBehavior<,>), typeof(RequestDiagnosticsBehavior<,>)));
+        services.TryAddEnumerable(ServiceDescriptor.Transient(
+            typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>)));
+
+        services.AddValidatorsFromAssemblies(assemblies);
+        RegisterHandlers(services, assemblies);
+        return services;
+    }
+
+    private static void RegisterHandlers(IServiceCollection services, Assembly[] assemblies)
+    {
+        foreach (var assembly in assemblies.Distinct())
         {
-            services.AddAutoMapper(x => x.AddProfile<TProfile>());
-
-            services.AddScoped<IDispatcher, DispatcherClass>();
-
-            RegisterHandlers(services, assemblies);
-
-            return services;
-        }
-        public static IServiceCollection AddCustomCqrs(
-            this IServiceCollection services,
-            params Assembly[] assemblies)
-        {
-            services.AddSingleton<IDateTimeProvider, DateTimeProvider>();
-            services.AddScoped<IDispatcher, DispatcherClass>();
-
-            RegisterHandlers(services, assemblies);
-
-            return services;
-        }
-
-        private static void RegisterHandlers(IServiceCollection services, Assembly[] assemblies)
-        {
-            foreach (var assembly in assemblies)
+            foreach (var type in assembly.GetTypes())
             {
-                var types = assembly.GetTypes();
+                if (type.IsAbstract || type.IsInterface || type.ContainsGenericParameters)
+                    continue;
 
-                foreach (var type in types)
+                foreach (var handlerInterface in type.GetInterfaces())
                 {
-                    var interfaces = type.GetInterfaces();
+                    if (!handlerInterface.IsGenericType)
+                        continue;
 
-                    foreach (var @interface in interfaces)
+                    var definition = handlerInterface.GetGenericTypeDefinition();
+                    if (definition == typeof(ICommandHandler<,>) ||
+                        definition == typeof(ICommandHandler<>) ||
+                        definition == typeof(IQueryHandler<,>) ||
+                        definition == typeof(INotificationHandler<>) ||
+                        definition == typeof(IDomainEventHandler<>))
                     {
-                        if (!@interface.IsGenericType)
-                            continue;
-
-                        var genericTypeDefinition = @interface.GetGenericTypeDefinition();
-
-                        if (genericTypeDefinition == typeof(ICommandHandler<,>) ||
-                            genericTypeDefinition == typeof(ICommandHandler<>) ||
-                            genericTypeDefinition == typeof(IQueryHandler<,>) ||
-                            genericTypeDefinition == typeof(INotificationHandler<>) ||
-                            genericTypeDefinition == typeof(IDomainEventHandler<>))
-                        {
-                            services.AddScoped(@interface, type);
-                        }
+                        services.TryAddEnumerable(
+                            ServiceDescriptor.Scoped(handlerInterface, type));
                     }
                 }
             }
