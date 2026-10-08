@@ -14,6 +14,7 @@ public static class MessagingModelBuilderExtensions
             entity.HasKey(x => x.Id);
             entity.Property(x => x.Contract).HasMaxLength(256).IsRequired();
             entity.Property(x => x.Payload).IsRequired();
+            entity.Property(x => x.TraceParent).HasMaxLength(55);
             entity.HasIndex(x => x.CreatedAt);
         });
 

@@ -8,7 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Infrastructure.Messaging.Configuration;
 
 /// <summary>Cached typed dispatch for before-save handlers and durable message mappings.</summary>
-internal sealed class DomainEventRegistry
+public sealed class DomainEventRegistry
 {
     private static readonly MethodInfo InvokeMethod = typeof(DomainEventRegistry)
         .GetMethod(nameof(InvokeTypedAsync), BindingFlags.Static | BindingFlags.NonPublic)!;

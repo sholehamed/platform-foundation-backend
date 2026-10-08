@@ -7,6 +7,8 @@ using Hangfire.SqlServer;
 using FluentValidation;
 using Infrastructure.Messaging.Behaviors;
 using Infrastructure.Messaging.Processing;
+using Infrastructure.Messaging.Interceptors;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Infrastructure.Messaging.Publishers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -66,6 +68,43 @@ public static class MessagingServiceCollectionExtensions
             foreach (var iface in type.GetInterfaces().Where(x => x.IsGenericType &&
                          x.GetGenericTypeDefinition() == typeof(INotificationHandler<>)))
                 services.TryAddEnumerable(ServiceDescriptor.Scoped(iface, type));
+        }
+
+        return services;
+    }
+
+    /// <summary>
+    /// Opt-in transaction-safe domain event routing for a business DbContext.
+    /// Must be called with AddPlatformMessaging against the same context.
+    /// For AddBaseInfrastructureServices contexts, removes the legacy
+    /// SavedChanges notification interceptor while retaining audit interceptors.
+    /// </summary>
+    public static IServiceCollection AddPlatformDomainEvents<TDbContext>(
+        this IServiceCollection services, params Assembly[] eventAssemblies)
+        where TDbContext : DbContext
+    {
+        ArgumentNullException.ThrowIfNull(eventAssemblies);
+        foreach (var entry in services.Where(d =>
+            d.ServiceType == typeof(ISaveChangesInterceptor) &&
+            d.ImplementationType?.Name == "DispatchDomainEventsInterceptor").ToArray())
+            services.Remove(entry);
+
+        services.TryAddScoped<IOutboxMessageStager>(sp =>
+            (IOutboxMessageStager)sp.GetRequiredService<IMessagePublisher>());
+        services.TryAddSingleton<DomainEventRegistry>();
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<ISaveChangesInterceptor,
+            TransactionalDomainEventsInterceptor<TDbContext>>());
+
+        foreach (var type in eventAssemblies.Distinct().SelectMany(x => x.GetTypes())
+            .Where(x => x.IsClass && !x.IsAbstract && !x.ContainsGenericParameters))
+        {
+            foreach (var iface in type.GetInterfaces().Where(x => x.IsGenericType))
+            {
+                var definition = iface.GetGenericTypeDefinition();
+                if (definition == typeof(IBeforeCommitDomainEventHandler<>) ||
+                    definition == typeof(IDomainEventMessageMapper<>))
+                    services.TryAddEnumerable(ServiceDescriptor.Scoped(iface, type));
+            }
         }
 
         return services;

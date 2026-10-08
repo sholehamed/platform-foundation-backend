@@ -80,8 +80,9 @@ public sealed class OutboxWorker<TDbContext>(
             // Restore W3C trace provenance from the transactionally persisted
             // outbox envelope. A new consumer span continues the original trace.
             var traceParent = delivery.Message.TraceParent;
+            ActivityContext parent = default;
             var validParent = traceParent is not null &&
-                ActivityContext.TryParse(traceParent, null, out var parent);
+                ActivityContext.TryParse(traceParent, null, out parent);
             using var consumer = validParent
                 ? ConsumerSource.StartActivity("message.consume", ActivityKind.Consumer, parent)
                 : ConsumerSource.StartActivity("message.consume", ActivityKind.Consumer);
